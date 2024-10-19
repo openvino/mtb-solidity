@@ -16,28 +16,6 @@ async function main() {
 		process.exit(1);
 	}
 
-	const tokenMinterAbi = [
-		{
-			inputs: [
-				{
-					internalType: "address",
-					name: "tokenAddress",
-					type: "address",
-				},
-			],
-			name: "addToken",
-			outputs: [],
-			stateMutability: "nonpayable",
-			type: "function",
-		},
-	];
-
-	const tokenMinter = new ethers.Contract(
-		tokenMinterAddress,
-		tokenMinterAbi,
-		deployer
-	);
-
 	for (const token of tokens) {
 		const capInEther = parseEther(token.cap.toString());
 
@@ -45,36 +23,26 @@ async function main() {
 			`Deploying ${token.name} (${token.symbol}) with cap: ${token.cap}`
 		);
 
+		// Desplegar el contrato MTB
 		const mtb = await MTB.deploy(token.name, token.symbol, capInEther);
 
 		console.log(`${token.name} (${token.symbol}) deployed to:`, mtb.target);
 
+		// Otorgar al TokenMinter el permiso de mintear
 		console.log(
 			`Granting minter role to TokenMinter for ${token.name} (${token.symbol})...`
 		);
 
-		const grantTx = await mtb.addMinter(tokenMinterAddress);
-		await grantTx.wait();
+		// Usar la función addMinter si está disponible en el contrato
+		const tx = await mtb.addMinter(tokenMinterAddress);
+		await tx.wait();
 
 		console.log(
-			`Minter role granted to TokenMinter for ${token.name} (${token.symbol})`
-		);
-
-		console.log(
-			`Adding ${token.name} (${token.symbol}) to allowed tokens in TokenMinter...`
-		);
-
-		const addTokenTx = await tokenMinter.addToken(mtb.target);
-		await addTokenTx.wait();
-
-		console.log(
-			`${token.name} (${token.symbol}) added to allowed tokens in TokenMinter.`
+			`Minter role for ${process.env.TOKEN_MINTER} granted to TokenMinter for ${token.name} (${token.symbol})`
 		);
 	}
 
-	console.log(
-		"All tokens deployed, minter role granted, and tokens added to TokenMinter!"
-	);
+	console.log("All tokens deployed and minter role granted!");
 }
 
 main()
