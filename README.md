@@ -1,6 +1,6 @@
 # Deploying MTB tokens
 
-1) Add .env file and add the desired provider
+1) Add .env file and add the desired provider and private key
 
 ```
 PRIVATE_KEY=
