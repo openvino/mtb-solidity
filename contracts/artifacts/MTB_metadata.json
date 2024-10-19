@@ -204,6 +204,19 @@
 				"type": "function"
 			},
 			{
+				"inputs": [],
+				"name": "allMinters",
+				"outputs": [
+					{
+						"internalType": "address[]",
+						"name": "",
+						"type": "address[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -835,11 +848,11 @@
 			]
 		},
 		"contracts/mtb.sol": {
-			"keccak256": "0x35ad078b180d575ae17f04d4b9878a0f169edad15aa46cfeb46df139ae20bf0c",
+			"keccak256": "0xc84786ede9c683bd4bde28ebaf7338894edb97180c6c75ea483ef1ccf966c12e",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://51d44dca68135f71dbd13f73ac40abb6e319314588c598382533ce1962389cdc",
-				"dweb:/ipfs/QmcsfBWRRXmyZpYgXyFDbioVwXuzeWoc36L1ipy6P1z9dm"
+				"bzz-raw://e57aa51bbf9987944e3d6559f124deabb3b6890099b2ebaabbc282c6c339f982",
+				"dweb:/ipfs/QmRx4jRAH6ofr62TB8bxf14HUxx5FJG1WF6cZcb83xLVtm"
 			]
 		}
 	},

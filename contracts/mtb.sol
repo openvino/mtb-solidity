@@ -23,30 +23,35 @@ contract MTB is ERC20, ERC20Burnable, ERC20Pausable, ERC20Capped, AccessControl 
         _setupRole(MINTER_ROLE, msg.sender); 
     }
 
-   
+    // Función para obtener todos los minters
+    function allMinters() public view returns (address[] memory) {
+        uint256 count = getRoleMemberCount(MINTER_ROLE);
+        address[] memory minters = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            minters[i] = getRoleMember(MINTER_ROLE, i);
+        }
+        return minters;
+    }
+
     function mint(address to, uint256 amount) public {
         require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
         _mint(to, amount);
     }
 
- 
     function addMinter(address account) public {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
         grantRole(MINTER_ROLE, account);
     }
 
- 
     function removeMinter(address account) public {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
         revokeRole(MINTER_ROLE, account);
     }
 
-   
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable, ERC20Capped) {
         super._beforeTokenTransfer(from, to, amount); 
     }
 
-    
     function _mint(address account, uint256 amount) internal override(ERC20) {
         super._mint(account, amount);
     }
