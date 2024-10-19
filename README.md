@@ -1,6 +1,8 @@
 # Deploying MTB tokens
 
-1) Add .env file and add the desired provider and private key
+Before deploying, first deploy minter.
+
+1. Add .env file and add the desired provider and private key and minter
 
 ```
 PRIVATE_KEY=
@@ -16,11 +18,14 @@ PROVIDER=
 # Mainnet
 PROVIDER_MAINNET=
 
+TOKEN_MINTER=
 
 ```
-2) 
+
+2.
+
 ```shell
 npm i
 npx hardhat compile
-npx hardhat run "scripts/deploy.js" --network targetNetwork
+npx hardhat run "scripts/deployWithMinter.js" --network targetNetwork
 ```
