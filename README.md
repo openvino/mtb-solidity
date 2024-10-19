@@ -1,13 +1,25 @@
-# Sample Hardhat Project
+# Deploying MTB tokens
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+1) Add .env file and add the desired provider
 
-Try running some of the following tasks:
+```
+PRIVATE_KEY=
 
+# OP SEPOLIA
+PROVIDER=
+
+# Mainnet
+PROVIDER_MAINNET=
+
+# Base Sepolia
+PROVIDER_BASE_SEPOLIA=
+
+# Base
+
+```
+2) 
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.js
+npm i
+npx hardhat compile
+npx hardhat run "scripts/deploy.js" --network targetNetwork
 ```
