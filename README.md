@@ -4,6 +4,11 @@
 
 ```
 PRIVATE_KEY=
+# Base Sepolia
+PROVIDER_BASE_SEPOLIA=
+
+# Base
+PROVIDER_BASE
 
 # OP SEPOLIA
 PROVIDER=
@@ -11,10 +16,6 @@ PROVIDER=
 # Mainnet
 PROVIDER_MAINNET=
 
-# Base Sepolia
-PROVIDER_BASE_SEPOLIA=
-
-# Base
 
 ```
 2) 
