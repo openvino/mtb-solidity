@@ -28,6 +28,7 @@ To set up and run the MTB Solidity project, follow these instructions:
    Install the necessary dependencies by running:
    ```bash
    npm install
+   npm install --save-dev hardhat
    ```
 
 3. **Compile Contracts**:
