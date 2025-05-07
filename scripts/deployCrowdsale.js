@@ -10,11 +10,11 @@ async function main() {
     throw new Error("Dirección del token inválida");
   }
 
-  const wallet = "";
-  const cap = ethers.parseEther("100"); // 100 ETH de tope
+  const wallet = ""; //WALLET QUE RECIBIRÁ EL ETH
+  const cap = ethers.parseEther("100"); 
   const ONE_DAY = 24 * 60 * 60;
   const openingTime = Math.floor(Date.now() / 1000) + 60; // arranca en 1 minuto
-  const closingTime = openingTime + (60 * ONE_DAY); // termina en 60 días
+  const closingTime = openingTime + (80 * ONE_DAY); // termina en 80 días
   
 
   // Aquí calculamos el rate, que es 1700 tokens por 1 ETH
@@ -36,7 +36,7 @@ async function main() {
 
   // Transferencia de tokens al contrato
   const mtb = await ethers.getContractAt("MTB", tokenAddress);
-  const amountToTransfer = ethers.parseEther("600"); // Tokens que quieras poner en venta
+  const amountToTransfer = ethers.parseEther("1024"); // Tokens que quieras poner en venta
 
   const tx = await mtb.transfer(await crowdsale.getAddress(), amountToTransfer);
   await tx.wait();

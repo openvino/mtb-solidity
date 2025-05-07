@@ -1,5 +1,5 @@
 const tokens = [
-	{ name: "PALMA DE CERA", symbol: "PDC19", cap: 600,},
+	{ name: "MikeTangoBravo25", symbol: "MTB25", cap: 1024,},
 ];
 
 module.exports = { tokens };
