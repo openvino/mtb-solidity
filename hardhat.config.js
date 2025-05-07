@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
 
-const provider = process.env.PROVIDER;
+const providerOpSepolia = process.env.PROVIDER_OP_SEPOLIA;
 const providerMainnet = process.env.PROVIDER_MAINNET;
 const providerBase = process.env.PROVIDER_BASE;
 const providerBaseSepolia = process.env.PROVIDER_BASE_SEPOLIA;
@@ -19,8 +19,8 @@ module.exports = {
     }
   },
   networks: {
-    targetNetwork: {
-      url: provider,
+    optimismSepolia: {
+      url: providerOpSepolia,
       accounts: [privateKey],
     },
     mainnet: {
