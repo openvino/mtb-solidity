@@ -9,9 +9,19 @@
        npm i
        npx hardhat compile
        npx hardhat run "scripts/deploy.js" --network base
-
+       
 
 ```
+4.  If verification fails (change the parameters to match the deployed token):
+
+```
+ npx hardhat verify --network base --contract contracts/mtb.sol:MTB 0xA4972a46D2a49AbE6E5EE7406cEB7A779A1dA185 "MikeTangoBravo25" "MTB25" 1024000000000000000000 1024000000000000000000
+
+```
+
+
+
+
 
 # Deploying Crowdsale
 
