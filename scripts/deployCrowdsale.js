@@ -4,13 +4,13 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Usando cuenta:", deployer.address);
 
-  const tokenAddress = ""; // Asegurate que esté bien
+  const tokenAddress = "0x80bC76FfbD61cDBA74483DBEa5C927250F2F3f91"; // Asegurate que esté bien
 
   if (!ethers.isAddress(tokenAddress)) {
     throw new Error("Dirección del token inválida");
   }
 
-  const wallet = ""; //WALLET QUE RECIBIRÁ EL ETH
+  const wallet = "0x87495d92Ad7655BF8bcC6447ea715498238517aF"; //WALLET QUE RECIBIRÁ EL ETH
   const cap = ethers.parseEther("100"); 
   const ONE_DAY = 24 * 60 * 60;
   const openingTime = Math.floor(Date.now() / 1000) + 60; // arranca en 1 minuto

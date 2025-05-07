@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "./MTB.sol";
+import "./mtb.sol";
 
 contract CrowdsaleOVI {
     MTB public token;
