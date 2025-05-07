@@ -1,58 +1,52 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.12;
+pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Capped.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {ERC20Pausable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20Capped} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MTB is ERC20, ERC20Burnable, ERC20Pausable, ERC20Capped, AccessControl {
-    bytes32 internal constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
+contract MTB is 
+    ERC20, 
+    ERC20Burnable, 
+    ERC20Pausable, 
+    ERC20Permit, 
+    ERC20Capped, 
+    Ownable 
+{
     constructor(
-        string memory name, 
-        string memory symbol, 
-        uint256 cap
-    ) 
-        ERC20(name, symbol)
-        ERC20Capped(cap)
-        public
+        string memory name_,
+        string memory symbol_,
+        uint256 cap_,
+        uint256 initialMintAmount_
+    )
+        ERC20(name_, symbol_)
+        ERC20Capped(cap_)
+        ERC20Permit(name_)
+        Ownable(msg.sender)
     {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(MINTER_ROLE, msg.sender); 
+        require(cap_ >= initialMintAmount_, "Cap menor que mint inicial");
+        _mint(msg.sender, initialMintAmount_);
     }
 
-    // Función para obtener todos los minters
-    function allMinters() public view returns (address[] memory) {
-        uint256 count = getRoleMemberCount(MINTER_ROLE);
-        address[] memory minters = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            minters[i] = getRoleMember(MINTER_ROLE, i);
-        }
-        return minters;
+    function pause() public onlyOwner {
+        _pause();
     }
 
-    function mint(address to, uint256 amount) public {
-        require(hasRole(MINTER_ROLE, msg.sender), "Caller is not a minter");
-        _mint(to, amount);
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
-    function addMinter(address account) public {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-        grantRole(MINTER_ROLE, account);
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount); 
     }
 
-    function removeMinter(address account) public {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-        revokeRole(MINTER_ROLE, account);
-    }
-
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable, ERC20Capped) {
-        super._beforeTokenTransfer(from, to, amount); 
-    }
-
-    function _mint(address account, uint256 amount) internal override(ERC20) {
-        super._mint(account, amount);
+    function _update(address from, address to, uint256 value)
+        internal
+        override(ERC20, ERC20Pausable, ERC20Capped)
+    {
+        super._update(from, to, value);
     }
 }
