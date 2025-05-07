@@ -38,7 +38,7 @@ async function main() {
     deployer.address, // recipient
     deployer.address, // defaultAdmin
     deployer.address, // pauser
-    deployer.address  // minter
+   
   );
   await dao.waitForDeployment();
   const daoAddress = await dao.getAddress();
@@ -48,7 +48,6 @@ async function main() {
     await run("verify:verify", {
       address: daoAddress,
       constructorArguments: [
-        deployer.address,
         deployer.address,
         deployer.address,
         deployer.address
