@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.12;
+pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./MTB.sol";
 
 contract Crowdsale {
-    using SafeMath for uint256;
-
     MTB public token;
     address payable public wallet;
 
@@ -17,7 +14,7 @@ contract Crowdsale {
     uint256 public closingTime;
     bool public isFinalized;
 
-    uint256 public rate; 
+    uint256 public rate;
 
     event TokensPurchased(
         address indexed purchaser,
@@ -33,7 +30,7 @@ contract Crowdsale {
         uint256 _openingTime,
         uint256 _closingTime,
         uint256 _rate
-    ) public {
+    ) {
         require(_wallet != address(0), "Wallet is zero address");
         require(address(_token) != address(0), "Token is zero address");
 
@@ -42,7 +39,7 @@ contract Crowdsale {
         cap = _cap;
         openingTime = _openingTime;
         closingTime = _closingTime;
-        rate = _rate; 
+        rate = _rate;
     }
 
     receive() external payable {
@@ -62,26 +59,31 @@ contract Crowdsale {
     }
 
     function getTokenAmount(uint256 weiAmount) public view returns (uint256) {
-        uint256 tokens = weiAmount.mul(rate);
-        return tokens;
+        return weiAmount * rate;
     }
 
     function buyTokens() public payable onlyWhileOpen {
         require(!isFinalized, "Crowdsale finalized");
 
         uint256 weiAmount = msg.value;
-        require(weiRaised.add(weiAmount) <= cap, "Cap exceeded");
+        require(weiRaised + weiAmount <= cap, "Cap exceeded");
 
-        uint256 tokens = getTokenAmount(weiAmount);
-        weiRaised = weiRaised.add(weiAmount);
+        uint256 tokensAmount = getTokenAmount(weiAmount);
+        require(
+            token.balanceOf(address(this)) >= tokensAmount,
+            "Not enough tokens in crowdsale"
+        );
 
-        emit TokensPurchased(msg.sender, weiAmount, tokens);
+        weiRaised += weiAmount;
 
-        require(token.transfer(msg.sender, tokens), "Token transfer failed");
+        emit TokensPurchased(msg.sender, weiAmount, tokensAmount);
+
+        require(token.transfer(msg.sender, tokensAmount), "Token transfer failed");
         wallet.transfer(weiAmount);
     }
 
     function finalize() external {
+        require(msg.sender == wallet, "Only wallet can finalize");
         require(block.timestamp > closingTime, "Crowdsale not ended");
         require(!isFinalized, "Already finalized");
 
@@ -100,7 +102,7 @@ contract Crowdsale {
     }
 
     function getRate() public view returns (uint256) {
-        return rate; 
+        return rate;
     }
 
     function balanceOf(address account) public view returns (uint256) {
@@ -108,6 +110,6 @@ contract Crowdsale {
     }
 
     function balanceOfCrowdsale() public view returns (uint256) {
-        return token.balanceOf(address(this)); 
+        return token.balanceOf(address(this));
     }
 }
