@@ -17,18 +17,18 @@ contract MTB is
     Ownable 
 {
     constructor(
-        string memory name_,
-        string memory symbol_,
-        uint256 cap_,
-        uint256 initialMintAmount_
+        string memory name,
+        string memory symbol,
+        uint256 cap,
+        uint256 initialMintAmount
     )
-        ERC20(name_, symbol_)
-        ERC20Capped(cap_)
-        ERC20Permit(name_)
+        ERC20(name, symbol)
+        ERC20Capped(cap)
+        ERC20Permit(name)
         Ownable(msg.sender)
     {
-        require(cap_ >= initialMintAmount_, "Cap menor que mint inicial");
-        _mint(msg.sender, initialMintAmount_);
+        require(cap >= initialMintAmount, "Cap menor que mint inicial");
+        mint(msg.sender, initialMintAmount);
     }
 
     function pause() public onlyOwner {
