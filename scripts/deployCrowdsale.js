@@ -4,7 +4,7 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Usando cuenta:", deployer.address);
 
-  const tokenAddress = "0x80bC76FfbD61cDBA74483DBEa5C927250F2F3f91"; // Asegurate que esté bien
+  const tokenAddress = "0x57F89F4C146D7A2F55AcF1b347d287F17b4E2467"; // Asegurate que esté bien
 
   if (!ethers.isAddress(tokenAddress)) {
     throw new Error("Dirección del token inválida");
@@ -14,7 +14,8 @@ async function main() {
   const cap = ethers.parseEther("100"); 
   const ONE_DAY = 24 * 60 * 60;
   const openingTime = Math.floor(Date.now() / 1000) + 60; // arranca en 1 minuto
-  const closingTime = openingTime + (80 * ONE_DAY); // termina en 80 días
+  // const closingTime = openingTime + (80 * ONE_DAY); // termina en 80 días
+  const closingTime = openingTime + 1 
   
 
   // Aquí calculamos el rate, que es 1700 tokens por 1 ETH
