@@ -12,6 +12,4 @@ Before deploying, first deploy minter.
        npm i
        npx hardhat compile
        npx hardhat run "scripts/deploy.js" --network base
-
-
 ```
