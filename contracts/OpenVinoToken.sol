@@ -8,7 +8,7 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 import {ERC20Capped} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MTB is 
+contract OpenVinoToken is 
     ERC20, 
     ERC20Burnable, 
     ERC20Pausable, 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "./mtb.sol";
+import "./OpenVinoToken.sol";
 
 contract Crowdsale {
-    MTB public token;
+    OpenVinoToken public token;
     address payable public wallet;
 
     uint256 public weiRaised;
@@ -25,7 +25,7 @@ contract Crowdsale {
 
     constructor(
         address payable _wallet,
-        MTB _token,
+        OpenVinoToken _token,
         uint256 _cap,
         uint256 _openingTime,
         uint256 _closingTime,
