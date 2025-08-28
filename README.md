@@ -1,4 +1,3 @@
-
 # 🧪 OpenvinoDAO Deployment & Proposal Suite
 
 Este repositorio contiene scripts y contratos inteligentes para desplegar el ecosistema de OpenvinoDAO, incluyendo el token OVI, contratos de gobernanza (Governor, Timelock), tokens MTB y la generación de propuestas on-chain.
@@ -45,7 +44,7 @@ Este script despliega:
 - Y delega el poder de voto al deployer.
 
 ```bash
-npx hardhat run scripts/deployDao.js --network base
+npx hardhat run scripts/deploy_dao.js --network base
 ```
 
 Esto guardará las direcciones en `deployments/dao.json`.
@@ -95,14 +94,14 @@ npx hardhat run scripts/voteProposal.js --network base
 
 ## 📁 Archivos Importantes
 
-| Archivo | Descripción |
-|--------|-------------|
-| `scripts/deploy.js` | Deploy de tokens MTB |
-| `scripts/deployDao.js` | Deploy completo de la DAO |
+| Archivo                      | Descripción                |
+| ---------------------------- | -------------------------- |
+| `scripts/deploy.js`          | Deploy de tokens MTB       |
+| `scripts/deployDao.js`       | Deploy completo de la DAO  |
 | `scripts/proposeTransfer.js` | Propuesta de transferencia |
-| `scripts/proposeSplit.js` | Propuesta de split |
-| `scripts/proposeMint.js` | Propuesta de mint |
-| `scripts/voteProposal.js` | Emitir voto |
+| `scripts/proposeSplit.js`    | Propuesta de split         |
+| `scripts/proposeMint.js`     | Propuesta de mint          |
+| `scripts/voteProposal.js`    | Emitir voto                |
 
 ---
 
@@ -125,4 +124,4 @@ Con estos scripts puedes:
 
 ---
 
-## © OpenvinoDAO · 2025 
+## © OpenvinoDAO · 2025

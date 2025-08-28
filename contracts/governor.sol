@@ -24,7 +24,7 @@ contract MyGovernor is
         Governor("MyGovernor")
         GovernorSettings(
             1,        // votingDelay: 1 block (~1 segundo)
-            6575,     // votingPeriod: 1 día (en bloques, aprox 13.2s por bloque)
+            300,     // votingPeriod: (en bloques, aprox 13.2s por bloque)
             1000e18   // proposalThreshold: 1000 tokens
         )
         GovernorVotes(_token)
