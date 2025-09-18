@@ -15,37 +15,16 @@ contract SplitOracle is AccessControl {
 
     uint256 public thresholdPrice;   // wei (18 dec)
     uint256 public minOviInPool;     // wei
-    uint256 public minDuration;      // segs
+    uint256 public minDuration;      // seconds
 
-    uint256 public lastPriceRise;    // ts
-    uint256 public lastOviRise;      // ts
+    uint256 public lastPriceRise;    // timestamp
+    uint256 public lastOviRise;      // timestamp
 
     event SplitAllowedChecked(bool allowed);
 
-    constructor(
-      address admin,
-      address oviToken,
-      address usdcToken,
-      address pairAddr,
-      uint256 _thresholdPrice,
-      uint256 _minOviInPool,
-      uint256 _minDuration,
-      address daoAddress
-    ) {
-      _grantRole(ADMIN_ROLE, admin);
-      _grantRole(RESETTER_ROLE, daoAddress);
-
-      OVI            = IERC20Metadata(oviToken);
-      USDC           = IERC20Metadata(usdcToken);
-      pair           = IUniswapV2Pair(pairAddr);
-      thresholdPrice = _thresholdPrice;
-      minOviInPool   = _minOviInPool;
-      minDuration    = _minDuration;
-    }
-
-    /// @notice Actualiza timers: setea lastXRise si sube, o los reinicia
+    /// @notice Updates timers: sets last*Rise when thresholds are met, otherwise resets them.
     function updateState() public {
-      // PRECIO
+      // PRICE
       uint256 spot = getSpotPriceWei();
       if (spot >= thresholdPrice) {
         if (lastPriceRise == 0) lastPriceRise = block.timestamp;
@@ -61,7 +40,7 @@ contract SplitOracle is AccessControl {
       }
     }
 
-    /// @notice Precio spot normalizado a 18 decimales
+    /// @notice Spot price normalized to 18 decimals (USDC per OVI).
     function getSpotPriceWei() public view returns (uint256) {
       (uint112 r0, uint112 r1,) = pair.getReserves();
       bool zeroIsOvi = pair.token0() == address(OVI);
@@ -71,13 +50,13 @@ contract SplitOracle is AccessControl {
       return (usdcRes * factor) / oviRes;
     }
 
-    /// @notice OVI en pool raw
+    /// @notice OVI amount in the pool (raw reserves value).
     function getOviInPoolRaw() public view returns (uint256) {
       (uint112 r0, uint112 r1,) = pair.getReserves();
       return pair.token0() == address(OVI) ? r0 : r1;
     }
 
-    /// @notice View de condiciones con duración sin escribir
+    /// @notice Pure view of split conditions considering duration, without writing state.
     function canSplitView() public view returns (bool) {
       return _priceDurationOk() && _poolDurationOk();
     }
@@ -89,13 +68,13 @@ contract SplitOracle is AccessControl {
       return ok;
     }
 
-    /// @notice Reinicia timers (solo DAO)
+    /// @notice Resets both timers (DAO only).
     function resetRiseTimestamps() external onlyRole(RESETTER_ROLE) {
       lastPriceRise = block.timestamp;
       lastOviRise   = block.timestamp;
     }
 
-    /// @dev Chequea solo la duración de precio
+    /// @dev Checks only price threshold duration.
     function _priceDurationOk() internal view returns (bool) {
       uint256 spot = getSpotPriceWei();
       if (spot < thresholdPrice) return false;
@@ -103,7 +82,7 @@ contract SplitOracle is AccessControl {
       if (lastPriceRise == 0)     return false;
       return block.timestamp - lastPriceRise >= minDuration;
     }
-    /// @dev Chequea solo la duración de pool
+    /// @dev Checks only pool threshold duration.
     function _poolDurationOk() internal view returns (bool) {
       uint256 pool = getOviInPoolRaw();
       if (pool < minOviInPool)    return false;
@@ -112,7 +91,7 @@ contract SplitOracle is AccessControl {
       return block.timestamp - lastOviRise >= minDuration;
     }
 
-    /// @notice Estado de precio + contador
+    /// @notice Price status with elapsed and remaining counters.
     function priceDurationStatus()
       external view
       returns (
@@ -135,7 +114,7 @@ contract SplitOracle is AccessControl {
       ok = remaining == 0;
     }
 
-    /// @notice Estado de pool + contador
+    /// @notice Pool status with elapsed and remaining counters.
     function poolDurationStatus()
       external view
       returns (
@@ -158,7 +137,7 @@ contract SplitOracle is AccessControl {
       ok = remaining == 0;
     }
 
-    // —— Setters admin
+    // —— Admin setters
     function setThresholdPrice(uint256 p) external onlyRole(ADMIN_ROLE) {
       thresholdPrice = p;
     }
