@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
-/// @notice Interfaz mínima para tu SplitOracle
+/// @notice SplitOracle minumum interface
 interface ISplitOracle {
     function updateState() external;
     function canSplitView() external view returns (bool);

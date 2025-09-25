@@ -52,7 +52,7 @@ contract MyGovernor is
         _setProposalThreshold(newThreshold);
     }
 
-    // --- Getters personalizados ---
+    // --- Getters  ---
     function getVotingDelay() external view returns (uint256) {
         return votingDelay();
     }
@@ -65,7 +65,7 @@ contract MyGovernor is
         return proposalThreshold();
     }
 
-    // --- Overrides requeridos por Solidity ---
+    // --- Overrides ---
     function votingDelay()
         public
         view
