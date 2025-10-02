@@ -20,6 +20,7 @@
 - [Key Flows](#key-flows)
 - [Deployment & Operations Notes](#deployment--operations-notes)
 - [Testing Ideas](#testing-ideas)
+- [Scripts](#scripts)
 
 ## Overview
 This repository implements the smart-contract stack for the OpenVino DAO token ecosystem. It covers two ERC-20 compatible tokens (a capped utility token and a rebasing governance token), multisource token distribution via crowdsales, an on-chain oracle that decides when to trigger a token split, and a governance suite composed of a timelock, governor, and entitlement registry. The design targets progressive decentralization: initial operators can configure parameters, but on-chain roles and timelocked governance eventually own all critical levers.
@@ -128,3 +129,16 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 - Validate governance parameter updates by asserting only the governor owner (or timelock after transfer) can modify delays and thresholds.
 - Run integration tests where a proposal schedules an entitlement change, waits out the timelock, and successfully calls the registry.
 - Simulate crowdsale phase transitions, especially the partial fill scenario where a single contribution crosses from phase one to phase two.
+
+## Scripts
+Scripts live under `scripts/` and most of them rely on the Hardhat runtime. Before running any of them:
+- Make sure dependencies are installed with `npm install`.
+- Populate `.env` with at least `PRIVATE_KEY` and the RPC URLs you expect to use (`PROVIDER_MAINNET`, `PROVIDER_BASE`, or the corresponding `NEXT_PUBLIC_*` variants).
+
+Use Hardhat for scripts that import `require("hardhat")` or `ethers` from the Hardhat environment:
+- `npx hardhat run scripts/<script-name>.js` executes using the default network (derived from your `.env`).
+- `npx hardhat run scripts/<script-name>.js --network <network>` targets a named network from `hardhat.config.js`.
+
+If a script is plain Node.js (no Hardhat imports), you can run it with `node scripts/<script-name>.js`. Check the first lines of the file to confirm which runtime it expects.
+
+Before pointing a script at mainnet, review any hard-coded addresses and consider dry-running on a testnet.
