@@ -9,19 +9,19 @@ contract CrowdsaleOVI {
     address payable public wallet;
 
     uint256 public weiRaised;
-    uint256 public cap;                // Límite total en wei (ETH)
+    uint256 public cap;                // Total cap in wei (ETH)
 
     uint256 public openingTime;
     uint256 public closingTime;
     bool    public isFinalized;
 
-    uint256 public ratePhaseOne;       // USD por token en fase 1 (18 decimales)
-    uint256 public ratePhaseTwo;       // USD por token en fase 2 (18 decimales)
+    uint256 public ratePhaseOne;       // USD per token in phase 1 (18 decimals)
+    uint256 public ratePhaseTwo;       // USD per token in phase 2 (18 decimals)
 
-    uint256 public tokensSold;         // Contador de tokens vendidos
-    uint256 public phaseOneTokenCap;   // Límite de tokens en fase 1 (en unidades de token, 18 decimales)
+    uint256 public tokensSold;         // Counter of tokens sold
+    uint256 public phaseOneTokenCap;   // Token limit in phase 1 (in token units, 18 decimals)
 
-    AggregatorV3Interface public priceFeed; // Oráculo ETH/USD
+    AggregatorV3Interface public priceFeed; // ETH/USD oracle
 
     event TokensPurchased(address indexed purchaser, uint256 value, uint256 amount);
     event CrowdsaleFinalized();
@@ -32,9 +32,9 @@ contract CrowdsaleOVI {
         uint256               _capWei,
         uint256               _openingTime,
         uint256               _closingTime,
-        uint256               _phaseOneTokenCap,  // ej. 400_000 * 1e18
-        uint256               _ratePhaseOneUsd,   // ej. 1.25 * 1e18
-        uint256               _ratePhaseTwoUsd,   // ej. 2.5  * 1e18
+        uint256               _phaseOneTokenCap,  // e.g. 400_000 * 1e18
+        uint256               _ratePhaseOneUsd,   // e.g. 1.25 * 1e18
+        uint256               _ratePhaseTwoUsd,   // e.g. 2.5  * 1e18
         address               _priceFeed
     ) {
         require(_wallet != address(0), "Wallet is zero address");
@@ -67,34 +67,34 @@ contract CrowdsaleOVI {
             && !isFinalized;
     }
 
-    /// @dev Devuelve la cantidad de tokens a enviar por `weiAmount` ETH
+    /// @dev Returns the amount of tokens to send for `weiAmount` ETH
   function getTokenAmount(uint256 weiAmount) public view returns (uint256) {
-        // 1) obtenemos precio ETH/USD (8 decimales)
+        // 1) get ETH/USD price (8 decimals)
         (, int price,,,) = priceFeed.latestRoundData();
         require(price > 0, "Invalid price feed");
 
-        // 2) ajustamos a 18 decimales
-        uint256 ethUsd = uint256(price) * 1e10; // ahora 18 decimales
+        // 2) adjust to 18 decimals
+        uint256 ethUsd = uint256(price) * 1e10; // now 18 decimals
 
-        // 3) USD equivalentes a weiAmount ETH
+        // 3) USD equivalent to weiAmount ETH
         uint256 usdAmount = (weiAmount * ethUsd) / 1e18;
 
-        // calculamos tokens a la tarifa correcta
+        // calculate tokens at the correct rate
         if (tokensSold >= phaseOneTokenCap) {
-            // fase 2 entera
+            // fully phase 2
             return (usdAmount * 1e18) / ratePhaseTwo;
         }
 
-        // intentamos usar toda la cantidad en fase 1
+        // try to use entire amount in phase 1
         uint256 tokensAtOne = (usdAmount * 1e18) / ratePhaseOne;
         if (tokensSold + tokensAtOne <= phaseOneTokenCap) {
-            // cabe completo en fase 1
+            // fully fits in phase 1
             return tokensAtOne;
         }
 
-        // cruce de fase: parte en fase1, parte en fase2
+        // phase crossing: part in phase 1, part in phase 2
         uint256 availablePhaseOne = phaseOneTokenCap - tokensSold;
-        // USD consumidos en fase 1
+        // USD consumed in phase 1
         uint256 usdPhaseOne = (availablePhaseOne * ratePhaseOne) / 1e18;
         uint256 usdPhaseTwo = usdAmount - usdPhaseOne;
 
@@ -111,13 +111,13 @@ contract CrowdsaleOVI {
         uint256 tokenAmt = getTokenAmount(weiAmount);
         require(token.balanceOf(address(this)) >= tokenAmt, "Not enough tokens");
 
-        // efectos
+        // effects
         weiRaised += weiAmount;
         tokensSold += tokenAmt;
 
         emit TokensPurchased(msg.sender, weiAmount, tokenAmt);
 
-        // transferencias
+        // transfers
         require(token.transfer(msg.sender, tokenAmt), "Token transfer failed");
         wallet.transfer(weiAmount);
     }
@@ -136,7 +136,7 @@ contract CrowdsaleOVI {
         }
     }
 
-    /// @notice Devuelve la tarifa actual en tokens por USD (18 decimales)
+    /// @notice Returns the current rate in tokens per USD (18 decimals)
     function getRate() public view returns (uint256) {
         if (tokensSold >= phaseOneTokenCap) {
             return ratePhaseTwo;
@@ -157,22 +157,22 @@ contract CrowdsaleOVI {
     (, int price,,,) = priceFeed.latestRoundData();
     require(price > 0, "Invalid price feed");
 
-    uint256 ethUsd = uint256(price) * 1e10; // Pasamos de 8 a 18 decimales
+    uint256 ethUsd = uint256(price) * 1e10; // Convert from 8 to 18 decimals
 
     if (tokensSold >= phaseOneTokenCap) {
-        // Fase 2 completamente
+        // Fully in phase 2
         uint256 usdAmount = (tokenAmount * ratePhaseTwo) / 1e18;
         return (usdAmount * 1e18) / ethUsd;
     }
 
     uint256 availablePhaseOne = phaseOneTokenCap - tokensSold;
     if (tokenAmount <= availablePhaseOne) {
-        // Fase 1 completamente
+        // Fully in phase 1
         uint256 usdAmount = (tokenAmount * ratePhaseOne) / 1e18;
         return (usdAmount * 1e18) / ethUsd;
     }
 
-    // Parte en fase 1, parte en fase 2
+    // Part in phase 1, part in phase 2
     uint256 tokensInPhaseTwo = tokenAmount - availablePhaseOne;
 
     uint256 usdPhaseOne = (availablePhaseOne * ratePhaseOne) / 1e18;
@@ -184,7 +184,7 @@ contract CrowdsaleOVI {
 function getEthUsdPrice() public view returns (uint256) {
     (, int price,,,) = priceFeed.latestRoundData();
     require(price > 0, "Invalid price feed");
-    return uint256(price) * 1e10; // Para tener 18 decimales
+    return uint256(price) * 1e10; // To have 18 decimals
 }
 
 }

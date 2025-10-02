@@ -27,7 +27,7 @@ contract OpenVinoToken is
         ERC20Permit(name)
         Ownable(msg.sender)
     {
-        require(cap >= initialMintAmount, "Cap menor que mint inicial");
+        require(cap >= initialMintAmount, "Less cap than initial mint amount");
         mint(msg.sender, initialMintAmount);
     }
 
