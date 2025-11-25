@@ -20,14 +20,14 @@ contract MyGovernor is
 {
     address public owner;
 
-    constructor(IVotes _token, TimelockController _timelock)
+    constructor(IVotes _voteToken, TimelockController _timelock)
         Governor("MyGovernor")
         GovernorSettings(
             1,        // votingDelay: 1 block (~1 segundo)
             300,     // votingPeriod: (en bloques, aprox 13.2s por bloque)
             1000e18   // proposalThreshold: 1000 tokens
         )
-        GovernorVotes(_token)
+        GovernorVotes(_voteToken)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
     {

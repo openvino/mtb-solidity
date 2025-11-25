@@ -2,23 +2,36 @@
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Nonces.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "./interfaces/ISplitOracle.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
-contract OpenvinoDao is
+/// @notice Legacy SplitOracle interface (includes Uniswap pair dependency)
+interface ISplitOracleLegacy {
+    function updateState() external;
+    function canSplitView() external view returns (bool);
+    function resetRiseTimestamps() external;
+    function pair() external view returns (IUniswapV2Pair);
+}
+
+/**
+ * @dev Legacy implementation kept for reference/testing. New deployments should use `OpenvinoDao`.
+ */
+contract OpenvinoDaoLegacy is
     ERC20,
     ERC20Burnable,
     ERC20Pausable,
     ERC20Permit,
+    ERC20Votes,
     AccessControl
 {
     bytes32 public constant PAUSER_ROLE  = keccak256("PAUSER_ROLE");
     bytes32 public constant REBASER_ROLE = keccak256("REBASER_ROLE");
 
-    // —— Rebase internals (“OVS”) ——
     uint256 public constant INITIAL_FRAGMENTS_SUPPLY = 10_000_000 * 10**18;
     uint256 private constant TOTAL_OVS =
         type(uint128).max - (type(uint128).max % INITIAL_FRAGMENTS_SUPPLY);
@@ -26,82 +39,68 @@ contract OpenvinoDao is
     uint256 private _ovsPerFragment;
     mapping(address => uint256) private _ovsBalances;
 
-    // —— Oracle ——
-    ISplitOracle public oracle;
+    ISplitOracleLegacy public oracle;
     event OracleSet(address indexed newOracle);
-
-    // —— Rebase event ——
     event Rebase(uint256 oldSupply, uint256 newSupply);
 
     constructor(
-        string memory tokenName,
-        string memory tokenSymbol,
         address recipient,
         address defaultAdmin,
-        address pauser,
-        address rebaser
+        address pauser
     )
-        ERC20(tokenName, tokenSymbol)
-        ERC20Permit(tokenName)
+        ERC20("OpenvinoDao", "OVI")
+        ERC20Permit("OpenvinoDao")
     {
-        // 1) Assign roles
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(PAUSER_ROLE, pauser);
-        _grantRole(REBASER_ROLE, rebaser);
+        _grantRole(REBASER_ROLE, defaultAdmin);
 
-        // 2) Initialize rebase accounting
         _ovsPerFragment = TOTAL_OVS / INITIAL_FRAGMENTS_SUPPLY;
         _ovsBalances[recipient] = INITIAL_FRAGMENTS_SUPPLY * _ovsPerFragment;
         emit Transfer(address(0), recipient, INITIAL_FRAGMENTS_SUPPLY);
     }
 
-    /// @notice Set the SplitOracle address; only admin can call
     function setOracle(address oracleAddress)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        oracle = ISplitOracle(oracleAddress);
+        oracle = ISplitOracleLegacy(oracleAddress);
         emit OracleSet(oracleAddress);
     }
 
-    /// @notice Perform a split (rebase ×2) if oracle allows
     function split()
         external
         onlyRole(REBASER_ROLE)
     {
         require(address(oracle) != address(0), "Oracle not set");
 
-        // 1) Refresh oracle internal state
         oracle.updateState();
         require(oracle.canSplitView(), "Split not allowed");
 
-        // 2) Rebase: double supply
         uint256 oldSupply = totalSupply();
         uint256 newSupply = oldSupply * 2;
         require(newSupply > oldSupply, "split overflow");
         _ovsPerFragment = TOTAL_OVS / newSupply;
         emit Rebase(oldSupply, newSupply);
 
-        // 3) Reset oracle timers to block immediate subsequent splits
+        IUniswapV2Pair pool = oracle.pair();
+        pool.sync();
+
         oracle.resetRiseTimestamps();
     }
 
-    /// @notice Pause all transfers
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    /// @notice Unpause transfers
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
-    /// @dev totalSupply derived from OVS accounting
     function totalSupply() public view override(ERC20) returns (uint256) {
         return TOTAL_OVS / _ovsPerFragment;
     }
 
-    /// @dev balanceOf derived from OVS accounting
     function balanceOf(address account)
         public
         view
@@ -111,7 +110,6 @@ contract OpenvinoDao is
         return _ovsBalances[account] / _ovsPerFragment;
     }
 
-    /// @dev Unified hook for transfer/mint/burn using OVS units
     function _update(
         address from,
         address to,
@@ -119,7 +117,7 @@ contract OpenvinoDao is
     )
         internal
         virtual
-        override(ERC20, ERC20Pausable)
+        override(ERC20, ERC20Pausable, ERC20Votes)
     {
         require(!paused(), "Pausable: paused");
 
@@ -135,5 +133,15 @@ contract OpenvinoDao is
         }
 
         emit Transfer(from, to, amount);
+        _transferVotingUnits(from, to, amount);
+    }
+
+    function nonces(address owner)
+        public
+        view
+        override(ERC20Permit, Nonces)
+        returns (uint256)
+    {
+        return super.nonces(owner);
     }
 }

@@ -22,6 +22,32 @@ contract SplitOracle is AccessControl {
 
     event SplitAllowedChecked(bool allowed);
 
+    constructor(
+        IUniswapV2Pair pair_,
+        IERC20Metadata ovi_,
+        IERC20Metadata usdc_,
+        uint256 threshold,
+        uint256 minPool,
+        uint256 duration,
+        address admin
+    ) {
+        require(address(pair_) != address(0), "pair zero");
+        require(address(ovi_) != address(0), "ovi zero");
+        require(address(usdc_) != address(0), "usdc zero");
+        require(admin != address(0), "admin zero");
+
+        pair = pair_;
+        OVI = ovi_;
+        USDC = usdc_;
+
+        thresholdPrice = threshold;
+        minOviInPool = minPool;
+        minDuration = duration;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(RESETTER_ROLE, admin);
+    }
+
     /// @notice Updates timers: sets last*Rise when thresholds are met, otherwise resets them.
     function updateState() public {
       // PRICE
