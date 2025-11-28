@@ -1,10 +1,10 @@
-# 🧪 OpenVinoDAO · Architecture & Deployment
+# OpenVinoDAO · Architecture & Deployment
 
 This repo contains the governance stack: OVI token (rebasing), wOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
 
 ---
 
-## 🧩 Architecture at a Glance
+## Architecture
 
 OVI (OpenVinoDao) is the base asset. Holders wrap into wOVI to get voting power. Governor uses wOVI votes, Timelock executes. SplitOracle watches the wOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
 
@@ -32,7 +32,7 @@ Key flows:
 
 ---
 
-## 🚀 Contracts & Roles
+## Contracts & Roles
 
 - **OpenVinoDao (OVI)**: rebasing token (split ×2).
   - `DEFAULT_ADMIN_ROLE`: manages oracle and roles.
@@ -75,7 +75,7 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 
 ---
 
-## 🔐 Recommended Role Setup
+## Recommended Role Setup
 
 - Move OVI `DEFAULT_ADMIN_ROLE`, `REBASER_ROLE`, `PAUSER_ROLE` to a multisig/timelock; revoke EOAs.
 - On the oracle, give `DEFAULT_ADMIN_ROLE` and `RESETTER_ROLE` to the multisig, and `RESETTER_ROLE` to the OVI contract.
@@ -86,7 +86,7 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 
 ---
 
-## 🧭 Quick Start
+## Quick Start
 
 ```bash
 npm install
@@ -101,7 +101,7 @@ Then call `setOracle` on the DAO, check roles, and use `deployments/dao.json` an
 
 ---
 
-## ℹ️ Notes
+## Notes
 
 - Oracle must target the **wOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
 - Each `split()` doubles supply; tightly control `REBASER_ROLE` and oracle thresholds.  
@@ -109,7 +109,7 @@ Then call `setOracle` on the DAO, check roles, and use `deployments/dao.json` an
 
 ---
 
-## 🔄 wOVI vs OVI: Ratios and User Journeys
+## wOVI vs OVI: Ratios and User Journeys
 
 - **Ratios**: wOVI is a non-rebasing wrapper of OVI (ERC4626). The ratio `assetsPerShare`/`sharesPerAsset` reflects how many OVI back each wOVI share. On a split (OVI supply doubles), the vault ratio adjusts automatically: each wOVI represents twice as many OVI as before (assets/share goes up), so holders are not diluted.
 
@@ -123,6 +123,4 @@ Then call `setOracle` on the DAO, check roles, and use `deployments/dao.json` an
 
 To reduce user friction, the frontend should offer simple “Buy/Sell” and “Vote” actions that automatically handle wrap/unwrap and delegation in the background, so users never deal with those steps manually.
 
----
 
-© OpenVinoDAO · 2025
