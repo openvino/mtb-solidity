@@ -13,7 +13,7 @@ async function main() {
 	const timelockAddress = deployments.timelock;
 	const oviAddress = deployments.dao; // OVI es el DAO token
 
-	const governor = await ethers.getContractAt("MyGovernor", governorAddress);
+	const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 	const ovi = await ethers.getContractAt("OpenvinoDao", oviAddress);
 
 	// Encodear la llamada a split()

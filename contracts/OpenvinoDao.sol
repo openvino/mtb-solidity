@@ -79,7 +79,9 @@ contract OpenvinoDao is
         uint256 oldSupply = totalSupply();
         uint256 newSupply = oldSupply * 2;
         require(newSupply > oldSupply, "split overflow");
-        _ovsPerFragment = TOTAL_OVS / newSupply;
+        uint256 newOvsPerFragment = TOTAL_OVS / newSupply;
+        require(newOvsPerFragment > 0, "split limit reached");
+        _ovsPerFragment = newOvsPerFragment;
         emit Rebase(oldSupply, newSupply);
 
         // 3) Reset oracle timers to block immediate subsequent splits

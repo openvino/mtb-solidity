@@ -111,17 +111,23 @@ async function main() {
 			await prompt.ask("Timelock proposers (coma separada)", process.env.TIMELOCK_PROPOSERS || deployerAddress),
 			[deployerAddress]
 		);
-		const executors = parseAddressList(
-			await prompt.ask(
-				"Timelock executors (coma separada, 0x000...0 permite a cualquiera)",
-				process.env.TIMELOCK_EXECUTORS || deployerAddress
-			),
-			[deployerAddress]
+		const executorsInput = await prompt.ask(
+			"Timelock executors (coma separada, 0x000...0 permite a cualquiera)",
+			process.env.TIMELOCK_EXECUTORS || deployerAddress
 		);
+		let executors;
+		const execTrim = executorsInput.trim().toLowerCase();
+		if (!execTrim) {
+			executors = [deployerAddress];
+		} else if (execTrim === "0" || execTrim === zeroAddress.toLowerCase()) {
+			executors = [zeroAddress];
+		} else {
+			executors = parseAddressList(executorsInput, [deployerAddress]);
+		}
 		const admin = await prompt.ask("Timelock admin", process.env.TIMELOCK_ADMIN || deployerAddress);
 
 		console.log("\nDeploying Timelock...");
-		const Timelock = await ethers.getContractFactory("MyTimelock", signer);
+		const Timelock = await ethers.getContractFactory("OpenvinoTimelock", signer);
 		const timelock = await Timelock.deploy(minDelay, proposers, executors, admin);
 		const timelockAddress = await timelock.getAddress();
 		console.log("Timelock deployed at:", timelockAddress);
@@ -129,7 +135,7 @@ async function main() {
 		await verifyOrLog({
 			address: timelockAddress,
 			constructorArguments: [minDelay, proposers, executors, admin],
-			contract: "contracts/timelock.sol:MyTimelock",
+			contract: "contracts/timelock.sol:OpenvinoTimelock",
 			shouldVerify,
 		});
 
@@ -207,7 +213,7 @@ async function main() {
 		}
 
 		console.log("\nDeploying Governor...");
-		const Governor = await ethers.getContractFactory("MyGovernor", signer);
+		const Governor = await ethers.getContractFactory("OpenvinoGovernor", signer);
 		const governor = await Governor.deploy(voteTokenAddress, timelockAddress);
 		await governor.waitForDeployment();
 		const governorAddress = await governor.getAddress();
@@ -216,7 +222,7 @@ async function main() {
 		await verifyOrLog({
 			address: governorAddress,
 			constructorArguments: [voteTokenAddress, timelockAddress],
-			contract: "contracts/governor.sol:MyGovernor",
+			contract: "contracts/governor.sol:OpenvinoGovernor",
 			shouldVerify,
 		});
 
@@ -262,6 +268,32 @@ async function main() {
 			}
 		} catch (readErr) {
 			console.warn("No se pudieron leer/ajustar parámetros del Governor, se omite:", readErr);
+		}
+
+		// Setear oracle y asignar RESETTER_ROLE al DAO (obligatorio)
+		const splitOracleAddress = await prompt.ask(
+			"Oracle de split (requerido)",
+			process.env.SPLIT_ORACLE_ADDRESS || ""
+		);
+		if (!splitOracleAddress) {
+			throw new Error("Debes ingresar la dirección del SplitOracle");
+		}
+		try {
+			await dao.setOracle(splitOracleAddress);
+			console.log("Oracle seteado en DAO:", splitOracleAddress);
+			const splitOracleArtifact = await artifacts.readArtifact("SplitOracle");
+			const splitOracle = new ethers.Contract(
+				splitOracleAddress,
+				splitOracleArtifact.abi,
+				signer
+			);
+			const resetterRole = await splitOracle.RESETTER_ROLE();
+			const grantTx = await splitOracle.grantRole(resetterRole, daoAddress);
+			await grantTx.wait();
+			console.log("RESETTER_ROLE otorgado al DAO en el oracle");
+		} catch (err) {
+			console.warn("No se pudo setear el oracle / otorgar rol RESETTER:", err);
+			throw err;
 		}
 
 		console.log("\nConfiguring Timelock roles...");

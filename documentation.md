@@ -9,8 +9,8 @@
   - [OpenvinoDaoLegacy](#openvinodaolegacy)
   - [OpenVinoTokenVault](#openvinotokenvault)
 - [Governance Stack](#governance-stack)
-  - [MyGovernor](#mygovernor)
-  - [MyTimelock](#mytimelock)
+  - [OpenVinoGovernor](#openvinogovernor)
+  - [OpenVinoTimelock](#openvinotimelock)
   - [EntitlementRegistryDID](#entitlementregistrydid)
 - [Split Control](#split-control)
   - [SplitOracle](#splitoracle)
@@ -73,16 +73,16 @@ The initial recipient supplied in the constructor receives the entire initial fr
 - Splits automatically show up in the vault because `totalAssets()` reads the DAO token balance—no manual sync is required and Uniswap v2/v3/v4 can list `wOVI` as a plain ERC-20.
 
 ## Governance Stack
-### MyGovernor
-`MyGovernor` (`contracts/governor.sol`) wires the governance setup around OpenZeppelin's modular Governor, pointing at the `wOVI` votes token:
+### OpenvinoGovernor
+`OpenVinoGovernor` (`contracts/governor.sol`) wires the governance setup around OpenZeppelin's modular Governor, pointing at the `wOVI` votes token:
 - Voting parameters start at 1 block delay, a voting period of 300 blocks, and a 1,000 token proposal threshold; the owner may adjust these values via dedicated setters.
 - Quorum is defined as 4% of the recorded voting supply through `GovernorVotesQuorumFraction`.
 - Proposals execute through the associated `TimelockController`, enabling queued execution and cancellation.
 - Inherits `GovernorCountingSimple` for straightforward for/against/abstain tallies.
 - The contract tracks an `owner` (initial deployer) used for parameter updates before governance hands off control.
 
-### MyTimelock
-`MyTimelock` (`contracts/timelock.sol`) is a thin wrapper around OpenZeppelin's `TimelockController`.
+### OpenvinoTimelock
+`OpenVinoTimelock` (`contracts/timelock.sol`) is a thin wrapper around OpenZeppelin's `TimelockController`.
 - Constructor wires minimum delay, proposer list, executor list, and initial admin.
 - The timelock should eventually own the major roles of other contracts, ensuring every sensitive action is queued and delayed.
 
@@ -126,7 +126,7 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 - Intended for timelock ownership so approved governance proposals can disburse funds safely.
 
 ## Key Flows
-- **Governance Execution**: Token holders delegate voting power on `wOVI` (ERC-4626 + `ERC20Votes`) to participate in proposals. Approved proposals queue in `MyTimelock`, wait for the minimum delay, and execute target actions—often mutating roles, oracle parameters, or treasury payouts.
+- **Governance Execution**: Token holders delegate voting power on `wOVI` (ERC-4626 + `ERC20Votes`) to participate in proposals. Approved proposals queue in `OpenVinoTimelock`, wait for the minimum delay, and execute target actions—often mutating roles, oracle parameters, or treasury payouts.
 - **Split Lifecycle**: Operators with `REBASER_ROLE` call `split()` on `OpenvinoDao`. The function refreshes the oracle, halves `_ovsPerFragment` (doubling balances), and resets the oracle timers. There is no longer any Uniswap pair coupling; price propagation happens through wTOKEN.
 - **wTOKEN Trading Loop**: Holders who want the psychological split effect can keep the rebasing token, while traders wrap into wTOKEN via `OpenVinoTokenVault`. Flow: TOKEN → `deposit` → trade wTOKEN on any DEX → `redeem` when they want exposure to the rebasing asset again. Front-ends display both the DEX price (wTOKEN) and the implied price per TOKEN by dividing by `assetsPerShare()`.
 - **Access Grants**: Governance proposals can call `upsertGrantByDID` through the timelock to manage contributor permissions (e.g., admin or SSH roles) tracked on-chain for off-chain consumption.
@@ -138,7 +138,7 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 - Crowdsales require preloading token balances and approving the wallet address that collects ETH; consider using the timelock to trigger `finalize()` once sale conditions are met.
 - Document Chainlink feed addresses per network when deploying `CrowdsaleOVI`, and audit the Uniswap pair address connected to the oracle.
 - Token + vault deployment now lives in `scripts/deploy_token_stack.js`; point `DAO_TOKEN_REBASER` at your timelock when going to production so it is the sole caller of `split()`.
-- Governance wiring (`MyTimelock` + `MyGovernor`) lives in `scripts/deploy_dao.js`. The script accepts `DAO_TOKEN_ADDRESS` if you have already deployed the token stack separately and will grant + optionally revoke the `REBASER_ROLE` as part of the flow.
+- Governance wiring (`OpenVinoTimelock` + `OpenVinoGovernor`) lives in `scripts/deploy_dao.js`. The script accepts `DAO_TOKEN_ADDRESS` if you have already deployed the token stack separately and will grant + optionally revoke the `REBASER_ROLE` as part of the flow.
 
 ## Testing Ideas
 - Unit test rebase math by simulating multiple splits and verifying that proportional balances remain constant across holders.

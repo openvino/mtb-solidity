@@ -23,7 +23,7 @@ async function main() {
   await hre.run("verify:verify", {
     address,
     constructorArguments,
-    contract: "contracts/timelock.sol:MyTimelock",
+    contract: "contracts/timelock.sol:OpenvinoTimelock",
   });
 }
 

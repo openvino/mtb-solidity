@@ -7,7 +7,7 @@ async function main() {
   const [voter] = await ethers.getSigners();
   console.log("🗳️ Voter address:", voter.address);
 
-  const governor = await ethers.getContractAt("MyGovernor", GOVERNOR_ADDRESS);
+  const governor = await ethers.getContractAt("OpenvinoGovernor", GOVERNOR_ADDRESS);
 
   const state = await governor.state(PROPOSAL_ID);
   console.log("Estado actual de la propuesta:", state);

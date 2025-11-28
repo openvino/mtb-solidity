@@ -10,7 +10,7 @@ contract SplitOracle is AccessControl {
     bytes32 public constant RESETTER_ROLE  = keccak256("RESETTER_ROLE");
 
     IUniswapV2Pair     public immutable pair;
-    IERC20Metadata     public immutable OVI;
+    IERC20Metadata     public immutable WOVI;
     IERC20Metadata     public immutable USDC;
 
     uint256 public thresholdPrice;   // wei (18 dec)
@@ -24,7 +24,7 @@ contract SplitOracle is AccessControl {
 
     constructor(
         IUniswapV2Pair pair_,
-        IERC20Metadata ovi_,
+        IERC20Metadata wovi_,
         IERC20Metadata usdc_,
         uint256 threshold,
         uint256 minPool,
@@ -32,12 +32,12 @@ contract SplitOracle is AccessControl {
         address admin
     ) {
         require(address(pair_) != address(0), "pair zero");
-        require(address(ovi_) != address(0), "ovi zero");
+        require(address(wovi_) != address(0), "wovi zero");
         require(address(usdc_) != address(0), "usdc zero");
         require(admin != address(0), "admin zero");
 
         pair = pair_;
-        OVI = ovi_;
+        WOVI = wovi_;
         USDC = usdc_;
 
         thresholdPrice = threshold;
@@ -69,17 +69,17 @@ contract SplitOracle is AccessControl {
     /// @notice Spot price normalized to 18 decimals (USDC per OVI).
     function getSpotPriceWei() public view returns (uint256) {
       (uint112 r0, uint112 r1,) = pair.getReserves();
-      bool zeroIsOvi = pair.token0() == address(OVI);
-      uint256 oviRes  = zeroIsOvi ? r0 : r1;
-      uint256 usdcRes = zeroIsOvi ? r1 : r0;
+      bool zeroIsWovi = pair.token0() == address(WOVI);
+      uint256 woviRes  = zeroIsWovi ? r0 : r1;
+      uint256 usdcRes = zeroIsWovi ? r1 : r0;
       uint256 factor  = 10 ** (36 - USDC.decimals());
-      return (usdcRes * factor) / oviRes;
+      return (usdcRes * factor) / woviRes;
     }
 
     /// @notice OVI amount in the pool (raw reserves value).
     function getOviInPoolRaw() public view returns (uint256) {
       (uint112 r0, uint112 r1,) = pair.getReserves();
-      return pair.token0() == address(OVI) ? r0 : r1;
+      return pair.token0() == address(WOVI) ? r0 : r1;
     }
 
     /// @notice Pure view of split conditions considering duration, without writing state.
