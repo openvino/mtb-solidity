@@ -5,6 +5,7 @@ import path from "path";
 import readline from "readline";
 import { fileURLToPath } from "url";
 import "dotenv/config";
+import { findBuildInfo, writeVerifyFiles } from "./utils/verifyArtifacts.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -346,6 +347,24 @@ async function main() {
 		fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 		fs.writeFileSync(outputPath, JSON.stringify(deployedAddresses, null, 2));
 		console.log("\n📁 DAO contract addresses saved to:", outputPath);
+
+		// Build-info + Standard JSON for manual verify (per contract)
+		const saveArtifacts = (file, name, addr, label) => {
+			const bi = findBuildInfo(file, name);
+			if (bi?.data) {
+				writeVerifyFiles({
+					scriptLabel: "deploy_dao",
+					label,
+					address: addr,
+					buildInfoData: bi.data,
+				});
+			}
+		};
+		saveArtifacts("contracts/timelock.sol", "OpenvinoTimelock", timelockAddress, "timelock");
+		saveArtifacts("contracts/OpenvinoDao.sol", "OpenvinoDao", daoAddress, `dao_${tokenSymbol}`);
+		saveArtifacts("contracts/vault/OpenVinoTokenVault.sol", "OpenVinoTokenVault", voteTokenAddress, "vault");
+		saveArtifacts("contracts/governor/OpenvinoGovernor.sol", "OpenvinoGovernor", governorAddress, "governor");
+
 		console.log("\n✅ Deploy complete.");
 	} catch (err) {
 		console.error("❌ Deployment error:", err);

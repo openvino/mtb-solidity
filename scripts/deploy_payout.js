@@ -3,6 +3,7 @@
 
 require("dotenv").config();
 const hre = require("hardhat");
+const { findBuildInfo, writeVerifyFiles } = require("./utils/verifyArtifacts.cjs");
 
 async function main() {
 	const timelock = "0xc779751feA3A97eEDC1688270a03b5BAa9f881F6";
@@ -23,6 +24,17 @@ async function main() {
 		console.log("Verified OK");
 	} catch (e) {
 		console.log("Verify skipped/failed:", e.message ?? e);
+	}
+
+	// Guardar build-info y Standard JSON
+	const bi = findBuildInfo("contracts/Payout.sol", "Payout");
+	if (bi?.data) {
+		writeVerifyFiles({
+			scriptLabel: "deploy_payout",
+			label: "payout",
+			address: addr,
+			buildInfoData: bi.data,
+		});
 	}
 }
 

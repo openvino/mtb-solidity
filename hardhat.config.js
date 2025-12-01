@@ -1,45 +1,56 @@
-// Hardhat config (ESM)
+// hardhat.config.js — Hardhat 3 + Verify V2
 import "dotenv/config";
+import { defineConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-ethers";
-import "@nomicfoundation/hardhat-verify";
+import hardhatVerify from "@nomicfoundation/hardhat-verify";
 
-const providerOpSepolia = process.env.PROVIDER_OP_SEPOLIA;
-const providerMainnet = process.env.PROVIDER_MAINNET;
-const providerBase = process.env.PROVIDER_BASE;
-const providerBaseSepolia = process.env.PROVIDER_BASE_SEPOLIA;
-const privateKey = process.env.PRIVATE_KEY;
+const {
+	PROVIDER_OP_SEPOLIA,
+	PROVIDER_MAINNET,
+	PROVIDER_BASE,
+	PROVIDER_BASE_SEPOLIA,
+	PRIVATE_KEY,
+	ETHERSCAN_API_KEY,
+} = process.env;
 
-export default {
-  solidity: {
-    version: "0.8.22",
-    settings: { optimizer: { enabled: true, runs: 200 } },
-  },
-  networks: {
-    opSepolia: { type: "http", url: providerOpSepolia, accounts: privateKey ? [privateKey] : [] },
-    mainnet: { type: "http", url: providerMainnet, accounts: privateKey ? [privateKey] : [] },
-    base: { type: "http", url: providerBase, accounts: privateKey ? [privateKey] : [] },
-    baseSepolia: { type: "http", url: providerBaseSepolia, accounts: privateKey ? [privateKey] : [] },
-  },
-  etherscan: {
-    apiKey: "NO_API_KEY_NEEDED", // Blockscout on Base Sepolia doesn't require an API key
-    customChains: [
-      {
-        network: "base",
-        chainId: 8453,
-        urls: {
-          apiURL: "https://api.basescan.org/api",
-          browserURL: "https://basescan.org",
-        },
-      },
-      {
-        network: "baseSepolia",
-        chainId: 84532,
-        urls: {
-          apiURL: "https://base-sepolia.blockscout.com/api",
-          browserURL: "https://base-sepolia.blockscout.com",
-        },
-      },
-    ],
-  },
-  verify: { blockscout: { enabled: false }, sourcify: { enabled: false } },
-};
+export default defineConfig({
+	solidity: {
+		version: "0.8.22",
+		settings: { optimizer: { enabled: true, runs: 200 } },
+	},
+
+	networks: {
+		opSepolia: {
+			type: "http",
+			url: PROVIDER_OP_SEPOLIA,
+			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+		},
+		mainnet: {
+			type: "http",
+			url: PROVIDER_MAINNET,
+			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+		},
+		base: {
+			type: "http",
+			url: PROVIDER_BASE,
+			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+		},
+		baseSepolia: {
+			type: "http",
+			url: PROVIDER_BASE_SEPOLIA,
+			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+		},
+	},
+
+	// 👇 ESTO es lo que faltaba: registrar el plugin
+	plugins: [hardhatVerify],
+
+	// Config de verificación V2 (una sola API key)
+	verify: {
+		etherscan: {
+			apiKey: ETHERSCAN_API_KEY,
+		},
+		blockscout: { enabled: true },
+		sourcify: { enabled: true },
+	},
+});

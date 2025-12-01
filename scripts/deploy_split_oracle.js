@@ -2,6 +2,7 @@ import readline from "readline";
 import fs from "fs";
 import path from "path";
 import pkg from "hardhat";
+import { findBuildInfo, writeVerifyFiles } from "./utils/verifyArtifacts.js";
 
 const { ethers } = pkg;
 
@@ -77,6 +78,47 @@ async function main() {
       )
     );
     console.log("📁 Guardado en", outPath);
+
+    // Guardar build-info y Standard JSON
+    const bi = findBuildInfo("contracts/splitsOracle.sol", "SplitOracle");
+    const { buildInfoFile, standardJsonInputFile } = writeVerifyFiles({
+      scriptLabel: "deploy_split_oracle",
+      label: "split_oracle",
+      address: addr,
+      buildInfoData: bi?.data,
+    });
+    console.log("Build-info:", buildInfoFile, "| Standard JSON:", standardJsonInputFile);
+
+    // Comando de verificación manual
+    const verifyDir = path.join(process.cwd(), "deployments", "verify", "deploy_split_oracle");
+    const verifyFile = path.join(
+      verifyDir,
+      `split_oracle_verify_${addr}.json`
+    );
+    fs.writeFileSync(
+      verifyFile,
+      JSON.stringify(
+        {
+          contract: "contracts/splitsOracle.sol:SplitOracle",
+          address: addr,
+          constructorArgs: [
+            pair,
+            ovi,
+            usdc,
+            threshold.toString(),
+            minPool.toString(),
+            duration.toString(),
+            admin,
+          ],
+          buildInfoFile,
+          standardJsonInputFile,
+          note: "Use BaseScan manual verify with compiler v0.8.22+commit.4fc1097e, optimizer 1, runs 200, evm Paris",
+        },
+        null,
+        2
+      )
+    );
+    console.log("Verify helper:", verifyFile);
   } finally {
     close();
   }

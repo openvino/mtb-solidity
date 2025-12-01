@@ -1,6 +1,7 @@
 const { ethers, run } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
+const { findBuildInfo, writeVerifyFiles } = require("./utils/verifyArtifacts.cjs");
 require("dotenv").config();
 
 async function verifyOrLog({ address, constructorArguments = [], contract }) {
@@ -54,6 +55,21 @@ async function main() {
 		address: vaultAddress,
 		constructorArguments: [daoAddress, shareName, shareSymbol],
 		contract: "contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault",
+	});
+
+	const biDao = findBuildInfo("contracts/OpenvinoDao.sol", "OpenvinoDao");
+	writeVerifyFiles({
+		scriptLabel: "deploy_token_stack",
+		label: "dao",
+		address: daoAddress,
+		buildInfoData: biDao?.data,
+	});
+	const biVault = findBuildInfo("contracts/vault/OpenVinoTokenVault.sol", "OpenVinoTokenVault");
+	writeVerifyFiles({
+		scriptLabel: "deploy_token_stack",
+		label: "vault",
+		address: vaultAddress,
+		buildInfoData: biVault?.data,
 	});
 
 	const record = {

@@ -2,6 +2,7 @@ const { ethers, run } = require("hardhat");
 const { tokens } = require("../utils/tokens");
 const fs = require("fs");
 const path = require("path");
+const { findBuildInfo, writeVerifyFiles } = require("./utils/verifyArtifacts.cjs");
 
 const { parseEther } = ethers;
 
@@ -39,6 +40,17 @@ async function main() {
 			console.log(`Verified ${token.symbol} on Etherscan`);
 		} catch (err) {
 			console.warn(`Verification failed for ${token.symbol}: ${err.message}`);
+		}
+
+		// Guardar build-info y Standard JSON
+		const bi = findBuildInfo("contracts/OpenVinoToken.sol", "OpenVinoToken");
+		if (bi?.data) {
+			writeVerifyFiles({
+				scriptLabel: "deploy_tokens",
+				label: token.symbol,
+				address,
+				buildInfoData: bi.data,
+			});
 		}
 	}
 
