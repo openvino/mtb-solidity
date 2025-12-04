@@ -90,7 +90,11 @@ async function main() {
 		);
 
 		const artifact = await hre.artifacts.readArtifact("OpenvinoDao");
-		const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, wallet);
+		const factory = new ethers.ContractFactory(
+			artifact.abi,
+			artifact.bytecode,
+			wallet
+		);
 
 		console.log("Deploying OVI...");
 
@@ -151,7 +155,11 @@ async function main() {
 
 		// === Locate & save build-info (Hardhat artifacts API) + Standard JSON Input ===
 		const chosen = findBuildInfo("contracts/OpenvinoDao.sol", "OpenvinoDao");
-		const { baseDir: verifyDir, buildInfoFile, standardJsonInputFile } = writeVerifyFiles({
+		const {
+			baseDir: verifyDir,
+			buildInfoFile,
+			standardJsonInputFile,
+		} = writeVerifyFiles({
 			scriptLabel: "deploy_ovi",
 			label: `ovi_${tokenSymbol}`,
 			address,
@@ -203,7 +211,10 @@ async function main() {
 				process.env.BLOCKSCOUT_VERIFY_URL ||
 				"https://base-sepolia.blockscout.com/api";
 
-			if (networkName === "baseSepolia" && standardJsonInputFile !== "not-found") {
+			if (
+				networkName === "baseSepolia" &&
+				standardJsonInputFile !== "not-found"
+			) {
 				const standardJsonPath = path.join(verifyDir, standardJsonInputFile);
 				const standardJson = fs.readFileSync(standardJsonPath, "utf8");
 
@@ -243,8 +254,12 @@ async function main() {
 					}
 					// If Blockscout says not a contract, wait and retry (indexing lag)
 					if (
-						(data?.message || "").toLowerCase().includes("address is not a smart-contract") ||
-						(data?.message || "").toLowerCase().includes("missing sourcecode") ||
+						(data?.message || "")
+							.toLowerCase()
+							.includes("address is not a smart-contract") ||
+						(data?.message || "")
+							.toLowerCase()
+							.includes("missing sourcecode") ||
 						(data?.message || "").toLowerCase().includes("missing codeformat")
 					) {
 						await new Promise((r) => setTimeout(r, 7000));
@@ -254,10 +269,12 @@ async function main() {
 					done = true;
 				}
 			} else {
-				console.warn("⚠️ Skipping Blockscout verify: not baseSepolia or no standard JSON input");
+				console.warn(
+					"Skipping Blockscout verify: not baseSepolia or no standard JSON input"
+				);
 			}
 		} catch (err) {
-			console.warn("⚠️ Blockscout auto-verify failed:", err.message);
+			console.warn("Blockscout auto-verify failed:", err.message);
 		}
 	} finally {
 		close();
