@@ -2,6 +2,7 @@
 
 ## Table of Contents
 - [Overview](#overview)
+- [Architecture at a Glance](#architecture-at-a-glance)
 - [Contract Map](#contract-map)
 - [Token Contracts](#token-contracts)
   - [OpenVinoToken](#openvinotoken)
@@ -11,7 +12,6 @@
 - [Governance Stack](#governance-stack)
   - [OpenVinoGovernor](#openvinogovernor)
   - [OpenVinoTimelock](#openvinotimelock)
-  - [EntitlementRegistryDID](#entitlementregistrydid)
 - [Split Control](#split-control)
   - [SplitOracle](#splitoracle)
 - [Crowdsales](#crowdsales)
@@ -20,23 +20,51 @@
 - [Treasury Utility](#treasury-utility)
   - [Payout](#payout)
 - [Key Flows](#key-flows)
+  - [User Flows](#user-flows)
+  - [Deployment Flows](#deployment-flows)
+  - [Operational State & Routine DAO Flows](#operational-state--routine-dao-flows)
+- [OVI Price History (Derived from gOVI)](#ovi-price-history-derived-from-govi)
 - [Deployment & Operations Notes](#deployment--operations-notes)
+- [Appendix: Reference Projects (Rebasing + Wrapper Patterns)](#appendix-reference-projects-rebasing--wrapper-patterns)
 - [Testing Ideas](#testing-ideas)
 - [Scripts](#scripts)
 
 ## Overview
-This repository implements the smart-contract stack for the OpenVino DAO token ecosystem. It covers two ERC-20 compatible tokens (a capped utility token and a rebasing governance token), multisource token distribution via crowdsales, an on-chain oracle that decides when to trigger a token split, and a governance suite composed of a timelock, governor, and entitlement registry. The design targets progressive decentralization: initial operators can configure parameters, but on-chain roles and timelocked governance eventually own all critical levers.
+This repository implements the smart-contract stack for the OpenVino DAO token ecosystem. It covers two ERC-20 compatible tokens (a capped utility token and a rebasing governance token), multisource token distribution via crowdsales, an on-chain oracle that decides when to trigger a token split, and a governance suite composed of a timelock and governor. The design targets progressive decentralization: initial operators can configure parameters, but on-chain roles and timelocked governance eventually own all critical levers.
+
+## Architecture at a Glance
+OVI (OpenVinoDao) is the base asset. Holders wrap into gOVI to get voting power. Governor uses gOVI votes, Timelock executes. SplitOracle watches the gOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
+
+```
+    Users                       Oracle admin / DAO admin
+     |                                   |
+     v                                   v
+ [ OVI (rebasing) ] <---- wrap/unwrap ----> [ gOVI (ERC4626 + Votes) ]
+         |                                        |
+         | split() (requires SplitOracle ok)      |
+         v                                        v
+  [ SplitOracle (gOVI/quote pair) ]           [ OpenVinoGovernor ]
+                |                                      |
+     resetter role -> OVI               proposals/votes -> queue/exec
+                |                                      |
+                +---------------- [ OpenVinoTimelock ] <---- multisig / executor
+```
+
+Key flows:
+- Holders deposit OVI into the vault → mint gOVI → delegate → vote in Governor.
+- Governor queues/executess via Timelock.
+- `REBASER_ROLE` on OVI can call `split()`; it calls the Oracle to check thresholds and resets its timers (DAO has `RESETTER_ROLE` on the oracle).
+- gOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; gOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power.
 
 ## Contract Map
 | Component | File | Purpose |
 | --- | --- | --- |
 | Utility token | `contracts/OpenVinoToken.sol` | Capped, pausable ERC-20 for general ecosystem use. |
-| Governance token | `contracts/OpenvinoDao.sol` | Rebasing ERC-20 with split capability; governance voting now lives on the wrapped `wOVI` shares. |
+| Governance token | `contracts/OpenvinoDao.sol` | Rebasing ERC-20 with split capability; governance voting now lives on the wrapped `gOVI` shares. |
 | Legacy governance token | `contracts/OpenvinoDaoLegacy.sol` | Archived implementation that still syncs the Uniswap V2 pair during a split. |
 | Split oracle | `contracts/splitsOracle.sol` | Uniswap V2 based oracle that validates split conditions. |
 | Governor | `contracts/governor.sol` | Governor module orchestrating proposals and timelocked execution. |
 | Timelock | `contracts/timelock.sol` | Enforces execution delay for approved proposals. |
-| DID entitlement registry | `contracts/Entitlement.sol` | Timelock-controlled registry mapping DIDs to role grants. |
 | Crowdsale (utility token) | `contracts/Crowdsale.sol` | Simple ETH-for-token sale for `OpenVinoToken`. |
 | Crowdsale (governance token) | `contracts/OVICrowdsale.sol` | Chainlink-priced sale with phase-based USD targeting. |
 | Treasury payouts | `contracts/Payout.sol` | Minimal-ownable ETH forwarder used by governance. |
@@ -60,21 +88,22 @@ The owner (initially the deployer) is expected to transfer control to the timelo
 - The oracle interaction is now minimal (`updateState()`, `canSplitView()`, `resetRiseTimestamps()`), providing full rebase gating without hard-wiring a DEX pair.
 - Constructor parameters let you set the initial recipient, admin, pauser, and the address that should own `REBASER_ROLE`; this makes it easy to point the contract at yourself in a devnet and then pass the real timelock address in production.
 - Override logic enforces the pause check at every transfer while keeping balances derived from OVS accounting.
-The initial recipient supplied in the constructor receives the entire initial fragment supply (10 million tokens), which then scales via splits; governance voting happens on the wrapped `wOVI` token instead.
+The initial recipient supplied in the constructor receives the entire initial fragment supply (10 million tokens), which then scales via splits; governance voting happens on the wrapped `gOVI` token instead. This avoids rebase-specific governance vulnerabilities like stale vote checkpoints (rebases do not trigger vote updates), rebase timing manipulation around snapshots, and unintended voting power growth in passive treasury contracts.
 
 ### OpenvinoDaoLegacy
 `OpenvinoDaoLegacy` (`contracts/OpenvinoDaoLegacy.sol`) preserves the previous implementation that called `sync()` on the Uniswap V2 pair after every split. Keep it around for regression tests or forensics, but rely on the new `OpenvinoDao` for all deployments so the DEX integration flows entirely through `wTOKEN`.
 
 ### OpenVinoTokenVault
-`OpenVinoTokenVault` (`contracts/vault/OpenVinoTokenVault.sol`) is an ERC-4626 wrapper used to expose a non-rebasing token (`wOVI`) to every DEX/Lend integration and to carry governance voting:
+`OpenVinoTokenVault` (`contracts/vault/OpenVinoTokenVault.sol`) is an ERC-4626 wrapper used to expose a non-rebasing token (`gOVI`) to every DEX/Lend integration and to carry governance voting:
 - Holds the rebasing DAO token as `asset` and issues ERC-20 + permit shares for deposits (`deposit`, `mint`) and withdrawals (`withdraw`, `redeem`).
 - Extends `ERC20Votes` so delegations and snapshots run against a stable supply immune to rebases.
 - `assetsPerShare()` / `sharesPerAsset()` expose the real-time ratio so front-ends can compute `price(TOKEN) = price(wTOKEN) / assetsPerShare`.
-- Splits automatically show up in the vault because `totalAssets()` reads the DAO token balance—no manual sync is required and Uniswap v2/v3/v4 can list `wOVI` as a plain ERC-20.
+- Splits automatically show up in the vault because `totalAssets()` reads the DAO token balance—no manual sync is required and Uniswap v2/v3/v4 can list `gOVI` as a plain ERC-20.
+This wrapper design fixes the governance issues of rebasing tokens by making voting power depend on stable share balances while still reflecting supply changes through the exchange rate.
 
 ## Governance Stack
 ### OpenvinoGovernor
-`OpenVinoGovernor` (`contracts/governor.sol`) wires the governance setup around OpenZeppelin's modular Governor, pointing at the `wOVI` votes token:
+`OpenVinoGovernor` (`contracts/governor.sol`) wires the governance setup around OpenZeppelin's modular Governor, pointing at the `gOVI` votes token:
 - Voting parameters start at 1 block delay, a voting period of 300 blocks, and a 1,000 token proposal threshold; the owner may adjust these values via dedicated setters.
 - Quorum is defined as 4% of the recorded voting supply through `GovernorVotesQuorumFraction`.
 - Proposals execute through the associated `TimelockController`, enabling queued execution and cancellation.
@@ -85,13 +114,6 @@ The initial recipient supplied in the constructor receives the entire initial fr
 `OpenVinoTimelock` (`contracts/timelock.sol`) is a thin wrapper around OpenZeppelin's `TimelockController`.
 - Constructor wires minimum delay, proposer list, executor list, and initial admin.
 - The timelock should eventually own the major roles of other contracts, ensuring every sensitive action is queued and delayed.
-
-### EntitlementRegistryDID
-`EntitlementRegistryDID` (`contracts/Entitlement.sol`) keeps a DID-based allowlist that governance can mutate via the timelock.
-- Grants are keyed by DID hash + role and store active windows, revocation data, and proposal description hashes for traceability.
-- Only the configured `timelock` may call `upsertGrantByDID`, `revokeGrantByDID`, or `updateTimelock`, enforcing governance control.
-- Includes helper getters (`getGrant`, `getGrantByDID`, `isCurrentlyActiveByDID`) to integrate with off-chain services that consume the registry.
-This registry enables on-chain proposals to grant or revoke real-world access for DAO contributors in a verifiable way.
 
 ## Split Control
 ### SplitOracle
@@ -124,13 +146,64 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 `Payout` (`contracts/Payout.sol`) is a minimalist treasury contract.
 - Ownable wrapper that receives ETH and lets the owner forward arbitrary amounts to recipients via `pay`.
 - Intended for timelock ownership so approved governance proposals can disburse funds safely.
+- Purpose: a simple “treasury outbox” for ETH-only payouts (contributors, grants, ops costs) without complex accounting or token logic.
+- Scope limits: it does not track budgets, enforce schedules, or manage ERC-20s; it is deliberately dumb and relies on governance process for controls.
 
 ## Key Flows
-- **Governance Execution**: Token holders delegate voting power on `wOVI` (ERC-4626 + `ERC20Votes`) to participate in proposals. Approved proposals queue in `OpenVinoTimelock`, wait for the minimum delay, and execute target actions—often mutating roles, oracle parameters, or treasury payouts.
-- **Split Lifecycle**: Operators with `REBASER_ROLE` call `split()` on `OpenvinoDao`. The function refreshes the oracle, halves `_ovsPerFragment` (doubling balances), and resets the oracle timers. There is no longer any Uniswap pair coupling; price propagation happens through wTOKEN.
-- **wTOKEN Trading Loop**: Holders who want the psychological split effect can keep the rebasing token, while traders wrap into wTOKEN via `OpenVinoTokenVault`. Flow: TOKEN → `deposit` → trade wTOKEN on any DEX → `redeem` when they want exposure to the rebasing asset again. Front-ends display both the DEX price (wTOKEN) and the implied price per TOKEN by dividing by `assetsPerShare()`.
-- **Access Grants**: Governance proposals can call `upsertGrantByDID` through the timelock to manage contributor permissions (e.g., admin or SSH roles) tracked on-chain for off-chain consumption.
-- **Token Distribution**: The initial supply and any governance-mandated minting flows into the crowdsale contracts (`Crowdsale` / `CrowdsaleOVI`), which in turn distribute tokens to buyers at predetermined rates and forward raised ETH to the treasury wallet.
+The flows below emphasize the user-facing journey and the operational lifecycle. 
+
+### User Flows
+**Buy OVI (via gOVI)**  
+Quote token → swap for gOVI (DEX) → unwrap gOVI → receive OVI  
+`USDC/ETH` → `gOVI` (AMM) → `redeem()` → `OVI`
+
+**Sell OVI (via gOVI)**  
+OVI → wrap into gOVI → swap for quote token  
+`OVI` → `deposit()` → `gOVI` → (AMM) → `USDC/ETH`
+
+**Vote starting from OVI**  
+OVI → wrap into gOVI → delegate votes → vote → (optional) unwrap  
+`OVI` → `deposit()` → `gOVI` → `delegate()` → `vote()` → `redeem()`
+
+**Split lifecycle**  
+Oracle ok → `split()` (OVI supply ×2) → vault ratio updates → gOVI stays stable  
+`SplitOracle` → `OpenvinoDao.split()` → `assetsPerShare` ↑ → LPs unchanged
+
+### Deployment Flows
+**Token stack**  
+Deploy OVI → deploy gOVI vault → set Oracle → grant roles  
+`OpenvinoDao` → `OpenVinoTokenVault` → `setOracle()` → `grantRole(...)`
+
+**DAO stack**  
+Deploy Timelock → deploy Governor → wire roles  
+`OpenVinoTimelock` → `OpenVinoGovernor` → `PROPOSER/EXECUTOR/ADMIN`
+
+**Full-stack demo order (Base/Base Sepolia)**  
+1) Deploy token + vault (`deploy_token_stack.js`).  
+2) Create a gOVI/quote pool (Uniswap V2) and add liquidity.  
+3) Deploy SplitOracle (`deploy_split_oracle.js`) with pair + OVI + quote.  
+4) Deploy DAO stack (`deploy_dao.js`) and pass the SplitOracle address.  
+Notes: `deploy_dao.js` calls `setOracle()` and grants `RESETTER_ROLE` to the DAO.
+
+**Liquidity setup**  
+Seed gOVI/quote pool → enable trading routes → front-end wraps/unwraps  
+`gOVI + quote` → `AMM Pool` → `swap route` → `UI automation`
+
+### Operational State & Routine DAO Flows
+**Final operational state**  
+OVI rebases via Oracle gate; gOVI is the governance + trading token; Timelock owns critical roles.  
+`OpenvinoDao (rebasing)` + `OpenVinoTokenVault (votes)` + `Timelock (roles)` + `SplitOracle`
+
+**Routine governance**  
+Proposal → vote → queue → execute  
+`Governor` → `Timelock` → `execute(targets)`
+
+### OVI Price History (Derived from gOVI)
+OVI will not be listed directly, so historical OVI price must be derived from gOVI. This will be built later as an indexer/analytics component:
+- Source price: time series of `gOVI/quote` from the pool.
+- Convert to OVI: `price(OVI) = price(gOVI) / assetsPerShare()`.
+- Store/display: a daily (or block-based) history for charts and analytics.
+Placeholder flow: `AMM price feed` → `assetsPerShare()` → `OVI price history`.
 
 ## Deployment & Operations Notes
 - Ensure the timelock is set as the owner/admin for `OpenVinoToken`, `OpenvinoDao` roles, `SplitOracle` admin, and the `Payout` contract soon after deployment to minimize privileged EOAs.
@@ -140,13 +213,58 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 - Token + vault deployment now lives in `scripts/deploy_token_stack.js`; point `DAO_TOKEN_REBASER` at your timelock when going to production so it is the sole caller of `split()`.
 - Governance wiring (`OpenVinoTimelock` + `OpenVinoGovernor`) lives in `scripts/deploy_dao.js`. The script accepts `DAO_TOKEN_ADDRESS` if you have already deployed the token stack separately and will grant + optionally revoke the `REBASER_ROLE` as part of the flow.
 
-## Testing Ideas
-- Unit test rebase math by simulating multiple splits and verifying that proportional balances remain constant across holders.
-- Add ERC-4626 coverage to ensure `assetsPerShare()` tracks a simulated split (see `test/OpenVinoTokenVault.js` for the Hardhat suite).
-- Fuzz-test `SplitOracle.updateState()` with varying reserve ratios and timestamps to confirm timer behavior under edge conditions.
-- Validate governance parameter updates by asserting only the governor owner (or timelock after transfer) can modify delays and thresholds.
-- Run integration tests where a proposal schedules an entitlement change, waits out the timelock, and successfully calls the registry.
-- Simulate crowdsale phase transitions, especially the partial fill scenario where a single contribution crosses from phase one to phase two.
+## CLI Verification (BaseScan + Blockscout)
+```bash
+# BaseScan (Etherscan-compatible)
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
+
+# Blockscout (no API key needed)
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
+```
+
+## Appendix: Reference Projects (Rebasing + Wrapper Patterns)
+This section summarizes external projects that use a rebasing token plus a non-rebasing wrapper, with notes on what is distinctive about each approach and direct documentation links.
+
+### Ampleforth (AMPL / wAMPL)
+- Distinctive approach: AMPL is a classic elastic-supply token that rebases balances; wAMPL is the canonical non-rebasing wrapper used in AMMs and DeFi integrations to avoid reserve drift.
+- Mechanism usage: users wrap AMPL into wAMPL, which keeps balances fixed while the exchange rate changes with each rebase.
+- Docs: https://docs.ampleforth.org/
+- AMPL protocol overview: https://docs.ampleforth.org/learn/about-the-ampleforth-protocol
+- wAMPL (wrapper): https://docs.ampleforth.org/learn/about-wrapped-ampl
+
+### Olympus (sOHM / gOHM)
+- Distinctive approach: sOHM rebases as staking rewards accrue; gOHM is a non-rebasing wrapper that tracks the index and is favored for governance and LPs.
+- Mechanism usage: users wrap sOHM into gOHM so balances stay constant while value per unit increases.
+- Docs: https://docs.olympusdao.finance/
+- Tokens overview: https://docs.olympusdao.finance/main/overview/tokens/
+
+### Lido (stETH / wstETH)
+- Distinctive approach: stETH is rebasing as staking rewards are distributed; wstETH is the non-rebasing wrapper optimized for AMMs and integrations.
+- Mechanism usage: users wrap stETH into wstETH; balance stays fixed and the conversion rate rises with staking rewards.
+- Docs: https://docs.lido.fi/
+- Lido core contract (stETH): https://docs.lido.fi/contracts/lido/
+- wstETH (wrapper): https://docs.lido.fi/contracts/wsteth/
+- Token integration guide: https://docs.lido.fi/guides/lido-tokens-integration-guide/
+
+### Frax (frxETH / sfrxETH)
+- Distinctive approach: frxETH is the liquid token; sfrxETH is a vault share token (not rebasing) with yield reflected in the share value, following the same pattern used for AMM compatibility.
+- Mechanism usage: users deposit frxETH to mint sfrxETH; balances stay fixed while the redeemable value per share rises.
+- Docs: https://docs.frax.finance/
+- frxETH + sfrxETH overview: https://docs.frax.finance/frax-ether/frxeth-and-sfrxeth
+- Token addresses: https://docs.frax.finance/frax-ether/frxeth-and-sfrxeth-token-addresses
+
 
 ## Scripts
 Scripts live under `scripts/` and most of them rely on the Hardhat runtime. Before running any of them:

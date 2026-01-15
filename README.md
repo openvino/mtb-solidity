@@ -1,22 +1,22 @@
 # 🧪 OpenVinoDAO · Architecture & Deployment
 
-This repo contains the governance stack: OVI token (rebasing), wOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
+This repo contains the governance stack: OVI token (rebasing), gOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
 
 ---
 
 ## 🧩 Architecture at a Glance
 
-OVI (OpenVinoDao) is the base asset. Holders wrap into wOVI to get voting power. Governor uses wOVI votes, Timelock executes. SplitOracle watches the wOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
+OVI (OpenVinoDao) is the base asset. Holders wrap into gOVI to get voting power. Governor uses gOVI votes, Timelock executes. SplitOracle watches the gOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
 
 ```
     Users                       Oracle admin / DAO admin
      |                                   |
      v                                   v
- [ OVI (rebasing) ] <---- wrap/unwarp ----> [ wOVI (ERC4626 + Votes) ]
+ [ OVI (rebasing) ] <---- wrap/unwarp ----> [ gOVI (ERC4626 + Votes) ]
          |                                        |
          | split() (requires SplitOracle ok)      |
          v                                        v
-  [ SplitOracle (wOVI/quote pair) ]           [ OpenVinoGovernor ]
+  [ SplitOracle (gOVI/quote pair) ]           [ OpenVinoGovernor ]
                 |                                      |
      resetter role -> OVI               proposals/votes -> queue/exec
                 |                                      |
@@ -25,10 +25,10 @@ OVI (OpenVinoDao) is the base asset. Holders wrap into wOVI to get voting power.
 
 Key flows:
 
-- Holders deposit OVI into the vault → mint wOVI → delegate → vote in Governor.
+- Holders deposit OVI into the vault → mint gOVI → delegate → vote in Governor.
 - Governor queues/executess via Timelock.
 - `REBASER_ROLE` on OVI can call `split()`; it calls the Oracle to check thresholds and resets its timers (DAO has `RESETTER_ROLE` on the oracle).
-- wOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; wOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power.
+- gOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; gOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power.
 
 ---
 
@@ -38,13 +38,13 @@ Key flows:
   - `DEFAULT_ADMIN_ROLE`: manages oracle and roles.
   - `PAUSER_ROLE`: pauses transfers.
   - `REBASER_ROLE`: can call `split()` (doubles supply if oracle allows).
-- **OpenVinoTokenVault (wOVI)**: ERC4626 + ERC20Votes wrapping OVI; no roles.
-- **SplitOracle** (wOVI/quote): allows splits when price + liquidity hold for a duration.
+- **OpenVinoTokenVault (gOVI)**: ERC4626 + ERC20Votes wrapping OVI; no roles.
+- **SplitOracle** (gOVI/quote): allows splits when price + liquidity hold for a duration.
   - `DEFAULT_ADMIN_ROLE`: adjusts thresholds.
   - `RESETTER_ROLE`: allows `resetRiseTimestamps()` (the DAO must have it or `split()` reverts).
 - **OpenVinoTimelock**: executes queued actions.
   - `TIMELOCK_ADMIN_ROLE`, `PROPOSER_ROLE`, `EXECUTOR_ROLE` (if executor = 0x0, anyone can execute).
-- **OpenVinoGovernor**: counts wOVI votes, proposes and routes to Timelock. Owner can tweak voting delay/period/threshold.
+- **OpenVinoGovernor**: counts gOVI votes, proposes and routes to Timelock. Owner can tweak voting delay/period/threshold.
 - **StandardERC20**: simple OZ ERC20 (for tests).
 
 ---
@@ -54,12 +54,12 @@ Key flows:
 - `scripts/deploy_dao.js`
 
   - Prompts names/symbols, minDelay, proposers/executors/admin.
-  - Deploys Timelock, OVI, wOVI (vault), Governor.
+  - Deploys Timelock, OVI, gOVI (vault), Governor.
   - Requires a SplitOracle address; sets it on OVI and grants `RESETTER_ROLE` to the DAO (caller must have oracle admin).
   - Saves `deployments/dao.json` with addresses.
 
 - `scripts/deploy_split_oracle.js`
-  - Prompts wOVI/quote pair, wOVI and quote addresses, price threshold, min wOVI in pool, duration, admin.
+  - Prompts gOVI/quote pair, gOVI and quote addresses, price threshold, min gOVI in pool, duration, admin.
   - Optionally grants `RESETTER_ROLE` to the OVI (DAO) address provided.
   - Deploys `SplitOracle` and saves `deployments/split_oracle.json`.
 
@@ -91,38 +91,69 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 ```bash
 npm install
 npx hardhat compile
+# 1) Deploy token + vault (OVI + gOVI)
+npx hardhat run scripts/deploy_token_stack.js --network baseSepolia
+# 2) Create a gOVI/quote pool (Uniswap V2) and add liquidity
+# 3) Deploy SplitOracle (needs pair + OVI + quote)
+npx hardhat run scripts/deploy_split_oracle.js --network baseSepolia
 # Deploy DAO
 npx hardhat run scripts/deploy_dao.js --network baseSepolia
-# Deploy Oracle (if needed)
-npx hardhat run scripts/deploy_split_oracle.js --network baseSepolia
 ```
 
-Then call `setOracle` on the DAO, check roles, and use `deployments/dao.json` and `deployments/split_oracle.json` as references.
+The DAO deploy script expects an existing SplitOracle address and will call `setOracle`. Use `deployments/dao.json` and `deployments/split_oracle.json` as references.
 
 ---
 
+## 🧭 CLI Verification (BaseScan + Blockscout)
+
+```bash
+# BaseScan (Etherscan-compatible)
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
+
+# Blockscout (no API key needed)
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
+```
+
+---
+
+
 ## ℹ️ Notes
 
-- Oracle must target the **wOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
+- Oracle must target the **gOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
 - Each `split()` doubles supply; tightly control `REBASER_ROLE` and oracle thresholds.  
 - Be transparent about when/how splits are executed.
 
 ---
 
-## 🔄 wOVI vs OVI: Ratios and User Journeys
+## 🔄 gOVI vs OVI: Ratios and User Journeys
 
-- **Ratios**: wOVI is a non-rebasing wrapper of OVI (ERC4626). The ratio `assetsPerShare`/`sharesPerAsset` reflects how many OVI back each wOVI share. On a split (OVI supply doubles), the vault ratio adjusts automatically: each wOVI represents twice as many OVI as before (assets/share goes up), so holders are not diluted.
+- **Ratios**: gOVI is a non-rebasing wrapper of OVI (ERC4626). The ratio `assetsPerShare`/`sharesPerAsset` reflects how many OVI back each gOVI share. On a split (OVI supply doubles), the vault ratio adjusts automatically: each gOVI represents twice as many OVI as before (assets/share goes up), so holders are not diluted.
 
-- **Buy / LP path (before split)**: User swaps quote → wOVI (gets X wOVI). If they add liquidity, they pair wOVI with quote in the pool. Ratio is 1:1 if vault was empty; otherwise use the current ratio.
+- **Buy / LP path (before split)**: User swaps quote → gOVI (gets X gOVI). If they add liquidity, they pair gOVI with quote in the pool. Ratio is 1:1 if vault was empty; otherwise use the current ratio.
 
-- **After a split**: OVI supply doubles; vault’s `assetsPerShare` increases. wOVI balances stay the same, but each wOVI is redeemable for more OVI. Pool pricing stays consistent because wOVI is non-rebasing.
+- **After a split**: OVI supply doubles; vault’s `assetsPerShare` increases. gOVI balances stay the same, but each gOVI is redeemable for more OVI. Pool pricing stays consistent because gOVI is non-rebasing.
 
-- **Vote path**: User acquires wOVI (swap or wrap OVI), delegates votes (to self or another) and votes in Governor. No need to hold OVI directly for voting; wOVI carries voting power.
+- **Vote path**: User acquires gOVI (swap or wrap OVI), delegates votes (to self or another) and votes in Governor. No need to hold OVI directly for voting; gOVI carries voting power.
 
-- **Unwrap / exit**: User redeems wOVI → receives OVI using current ratio. If coming from LP, they remove liquidity (get wOVI + quote) and optionally unwrap wOVI to OVI.
+- **Unwrap / exit**: User redeems gOVI → receives OVI using current ratio. If coming from LP, they remove liquidity (get gOVI + quote) and optionally unwrap gOVI to OVI.
 
 To reduce user friction, the frontend should offer simple “Buy/Sell” and “Vote” actions that automatically handle wrap/unwrap and delegation in the background, so users never deal with those steps manually.
 
 ---
+
+
+
 
 © OpenVinoDAO · 2025

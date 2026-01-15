@@ -1,8 +1,15 @@
-const { ethers, run } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+import hre from "hardhat";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { createRequire } from "module";
+import "dotenv/config";
+
+const require = createRequire(import.meta.url);
 const { findBuildInfo, writeVerifyFiles } = require("./utils/verifyArtifacts.cjs");
-require("dotenv").config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function verifyOrLog({ address, constructorArguments = [], contract }) {
 	if (process.env.SKIP_VERIFICATION === "true") {
@@ -10,7 +17,8 @@ async function verifyOrLog({ address, constructorArguments = [], contract }) {
 		return;
 	}
 	try {
-		await run("verify:verify", { address, constructorArguments, contract });
+		const task = hre.tasks.getTask("verify");
+		await task.run({ address, constructorArgs: constructorArguments, contract });
 		console.log(`Verified: ${address}`);
 	} catch (err) {
 		console.warn(`Verification failed (${address}):`, err?.message || err);
@@ -18,10 +26,11 @@ async function verifyOrLog({ address, constructorArguments = [], contract }) {
 }
 
 async function main() {
+	const { ethers } = await hre.network.connect();
 	const [deployer] = await ethers.getSigners();
 	console.log("Deployer:", deployer.address);
 
-	const tokenName = process.env.DAO_TOKEN_NAME || "OpenvinoDao";
+	const tokenName = process.env.DAO_TOKEN_NAME || "OVI";
 	const tokenSymbol = process.env.DAO_TOKEN_SYMBOL || "OVI";
 	const recipient = process.env.DAO_TOKEN_RECIPIENT || deployer.address;
 	const admin = process.env.DAO_TOKEN_ADMIN || deployer.address;
@@ -41,8 +50,8 @@ async function main() {
 		contract: "contracts/OpenvinoDao.sol:OpenvinoDao",
 	});
 
-	const shareName = process.env.VAULT_SHARE_NAME || "Wrapped Openvino";
-	const shareSymbol = process.env.VAULT_SHARE_SYMBOL || "wOVI";
+	const shareName = process.env.VAULT_SHARE_NAME || "Governance OpenVinoDAO";
+	const shareSymbol = process.env.VAULT_SHARE_SYMBOL || "gOVI";
 
 	console.log("\nDeploying OpenVinoTokenVault (wTOKEN)...");
 	const Vault = await ethers.getContractFactory("OpenVinoTokenVault");

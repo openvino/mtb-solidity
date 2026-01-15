@@ -64,9 +64,10 @@ async function verifyOrLog({ address, constructorArguments = [], contract, shoul
 	await sleep(15000);
 
 	try {
-		await run("verify:verify", {
+		const task = hardhat.tasks.getTask("verify");
+		await task.run({
 			address,
-			constructorArguments,
+			constructorArgs: constructorArguments,
 			contract,
 		});
 		console.log("✅ Verified on explorer.");
@@ -99,8 +100,8 @@ async function main() {
 		// --- Prompt core params ---
 		const defaultTokenName = `OVI_TEST_${seqLabel}`;
 		const defaultTokenSymbol = `OVI_${seqLabel}`;
-		const defaultShareName = `Wrapped Openvino ${seqLabel}`;
-		const defaultShareSymbol = `wOVI_${seqLabel}`;
+		const defaultShareName = `Governance OpenVinoDAO ${seqLabel}`;
+		const defaultShareSymbol = `gOVI_${seqLabel}`;
 
 		const tokenName = await prompt.ask("Nombre del token DAO", defaultTokenName);
 		const tokenSymbol = await prompt.ask("Símbolo del token DAO", defaultTokenSymbol);

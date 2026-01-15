@@ -1,7 +1,7 @@
 // hardhat.config.js — Hardhat 3 + Verify V2
 import "dotenv/config";
 import { defineConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-ethers";
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
 import hardhatVerify from "@nomicfoundation/hardhat-verify";
 
 const {
@@ -42,8 +42,8 @@ export default defineConfig({
 		},
 	},
 
-	// 👇 ESTO es lo que faltaba: registrar el plugin
-	plugins: [hardhatVerify],
+	// 👇 Registrar plugins en Hardhat 3
+	plugins: [hardhatEthers, hardhatVerify],
 
 	// Config de verificación V2 (una sola API key)
 	verify: {
