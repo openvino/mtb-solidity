@@ -30,7 +30,7 @@ async function main() {
 	const [deployer] = await ethers.getSigners();
 	console.log("Deployer:", deployer.address);
 
-	const tokenName = process.env.DAO_TOKEN_NAME || "OVI";
+	const tokenName = process.env.DAO_TOKEN_NAME || "OpenVinoDAO";
 	const tokenSymbol = process.env.DAO_TOKEN_SYMBOL || "OVI";
 	const recipient = process.env.DAO_TOKEN_RECIPIENT || deployer.address;
 	const admin = process.env.DAO_TOKEN_ADMIN || deployer.address;
@@ -53,8 +53,8 @@ async function main() {
 	const shareName = process.env.VAULT_SHARE_NAME || "Governance OpenVinoDAO";
 	const shareSymbol = process.env.VAULT_SHARE_SYMBOL || "gOVI";
 
-	console.log("\nDeploying OpenVinoTokenVault (wTOKEN)...");
-	const Vault = await ethers.getContractFactory("OpenVinoTokenVault");
+	console.log("\nDeploying GovernanceOpenvinoDAO (wTOKEN)...");
+	const Vault = await ethers.getContractFactory("GovernanceOpenvinoDAO");
 	const vault = await Vault.deploy(daoAddress, shareName, shareSymbol);
 	await vault.waitForDeployment();
 	const vaultAddress = await vault.getAddress();
@@ -63,7 +63,7 @@ async function main() {
 	await verifyOrLog({
 		address: vaultAddress,
 		constructorArguments: [daoAddress, shareName, shareSymbol],
-		contract: "contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault",
+		contract: "contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO",
 	});
 
 	const biDao = findBuildInfo("contracts/OpenvinoDao.sol", "OpenvinoDao");
@@ -73,7 +73,7 @@ async function main() {
 		address: daoAddress,
 		buildInfoData: biDao?.data,
 	});
-	const biVault = findBuildInfo("contracts/vault/OpenVinoTokenVault.sol", "OpenVinoTokenVault");
+	const biVault = findBuildInfo("contracts/GovernanceOpenvinoDAO.sol", "GovernanceOpenvinoDAO");
 	writeVerifyFiles({
 		scriptLabel: "deploy_token_stack",
 		label: "vault",

@@ -16,7 +16,7 @@ async function main() {
   const timelockAddress = deployments.timelock;
 
   const dao = await ethers.getContractAt("OpenvinoDao", daoAddress);
-  const voteToken = await ethers.getContractAt("OpenVinoTokenVault", voteTokenAddress);
+  const voteToken = await ethers.getContractAt("GovernanceOpenvinoDAO", voteTokenAddress);
   const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 
   const amount = ethers.parseEther("1000"); // 1000 OVI

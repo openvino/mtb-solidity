@@ -1,10 +1,8 @@
 import readline from "readline";
 import fs from "fs";
 import path from "path";
-import pkg from "hardhat";
+import hre from "hardhat";
 import { findBuildInfo, writeVerifyFiles } from "./utils/verifyArtifacts.js";
-
-const { ethers } = pkg;
 
 function prompt() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -17,6 +15,7 @@ function prompt() {
 async function main() {
   const { ask, close } = prompt();
   try {
+    const { ethers } = await hre.network.connect();
     const [signer] = await ethers.getSigners();
     console.log("Network:", (await ethers.provider.getNetwork()).name);
     console.log("Deployer:", signer.address);

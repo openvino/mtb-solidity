@@ -10,10 +10,10 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
- * @title OpenVinoTokenVault
- * @notice ERC-4626 vault that wraps the rebasing DAO token and mints non-rebasing wTOKEN shares.
+ * @title GovernanceOpenvinoDAO
+ * @notice ERC-4626 vault that wraps the rebasing DAO token and mints non-rebasing governance shares.
  */
-contract OpenVinoTokenVault is ERC4626, ERC20Permit, ERC20Votes {
+contract GovernanceOpenvinoDAO is ERC4626, ERC20Permit, ERC20Votes {
     uint256 private constant RATIO_SCALE = 1e18;
 
     constructor(

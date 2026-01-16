@@ -1,5 +1,5 @@
 import hardhat from "hardhat";
-const { ethers, network, artifacts, run } = hardhat;
+const { artifacts } = hardhat;
 import fs from "fs";
 import path from "path";
 import readline from "readline";
@@ -65,9 +65,24 @@ async function verifyOrLog({ address, constructorArguments = [], contract, shoul
 
 	try {
 		const task = hardhat.tasks.getTask("verify");
+		const argsDir = path.join(__dirname, "../deployments/verify/args");
+		fs.mkdirSync(argsDir, { recursive: true });
+		const argsPath = path.join(argsDir, `constructor_args_${address}.js`);
+		const serializedArgs = constructorArguments.map((value) => {
+			if (typeof value === "bigint") return value.toString();
+			if (Array.isArray(value)) {
+				return value.map((item) => (typeof item === "bigint" ? item.toString() : item));
+			}
+			return value;
+		});
+		fs.writeFileSync(
+			argsPath,
+			`export default ${JSON.stringify(serializedArgs, null, 2)};\n`
+		);
+		const relativeArgsPath = path.relative(process.cwd(), argsPath);
 		await task.run({
 			address,
-			constructorArgs: constructorArguments,
+			constructorArgsPath: relativeArgsPath,
 			contract,
 		});
 		console.log("✅ Verified on explorer.");
@@ -85,23 +100,26 @@ async function main() {
 	const seqLabel = padSeq(currentSequence);
 
 	try {
+		const connection = await hardhat.network.connect();
+		const { ethers } = connection;
 		const [signer] = await ethers.getSigners();
 		const deployerAddress = await signer.getAddress();
 		const zeroAddress = ethers.ZeroAddress;
+		const networkName = connection.networkName || (await ethers.provider.getNetwork()).name;
 
 		console.log(
 			`Counter file: ${counterPath} | seq: ${seqLabel} (current=${currentSequence} reserved=${nextReserved})`
 		);
-		console.log(`Network: ${network.name}`);
+		console.log(`Network: ${networkName}`);
 		console.log("Deployer:", deployerAddress);
 
-		const shouldVerify = (await prompt.ask("Attempt contract verification on explorer? (y/N)", "n")).toLowerCase() === 'y';
+		const shouldVerify = process.env.SKIP_VERIFICATION !== "true";
 
 		// --- Prompt core params ---
-		const defaultTokenName = `OVI_TEST_${seqLabel}`;
-		const defaultTokenSymbol = `OVI_${seqLabel}`;
-		const defaultShareName = `Governance OpenVinoDAO ${seqLabel}`;
-		const defaultShareSymbol = `gOVI_${seqLabel}`;
+		const defaultTokenName = "OpenVinoDAO";
+		const defaultTokenSymbol = "OVI";
+		const defaultShareName = "Governance OpenVinoDAO";
+		const defaultShareSymbol = "gOVI";
 
 		const tokenName = await prompt.ask("Nombre del token DAO", defaultTokenName);
 		const tokenSymbol = await prompt.ask("Símbolo del token DAO", defaultTokenSymbol);
@@ -174,8 +192,8 @@ async function main() {
 
 		let voteToken;
 		if (!voteTokenAddress) {
-			console.log("\nDeploying OpenVinoTokenVault (wTOKEN votes)...");
-			const Vault = await ethers.getContractFactory("OpenVinoTokenVault", signer);
+			console.log("\nDeploying GovernanceOpenvinoDAO (wTOKEN votes)...");
+			const Vault = await ethers.getContractFactory("GovernanceOpenvinoDAO", signer);
 			voteToken = await Vault.deploy(daoAddress, shareName, shareSymbol);
 			voteTokenAddress = await voteToken.getAddress();
 			console.log("Vault deployed at:", voteTokenAddress);
@@ -183,12 +201,12 @@ async function main() {
 			await verifyOrLog({
 				address: voteTokenAddress,
 				constructorArguments: [daoAddress, shareName, shareSymbol],
-				contract: "contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault",
+				contract: "contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO",
 				shouldVerify,
 			});
 		} else {
 			console.log("\nUsing existing votes token (expected wOVI) at:", voteTokenAddress);
-			voteToken = await ethers.getContractAt("OpenVinoTokenVault", voteTokenAddress, signer);
+			voteToken = await ethers.getContractAt("GovernanceOpenvinoDAO", voteTokenAddress, signer);
 		}
 
 		const delegateTx = await voteToken.delegate(deployerAddress);
@@ -363,7 +381,7 @@ async function main() {
 		};
 		saveArtifacts("contracts/timelock.sol", "OpenvinoTimelock", timelockAddress, "timelock");
 		saveArtifacts("contracts/OpenvinoDao.sol", "OpenvinoDao", daoAddress, `dao_${tokenSymbol}`);
-		saveArtifacts("contracts/vault/OpenVinoTokenVault.sol", "OpenVinoTokenVault", voteTokenAddress, "vault");
+		saveArtifacts("contracts/GovernanceOpenvinoDAO.sol", "GovernanceOpenvinoDAO", voteTokenAddress, "vault");
 		saveArtifacts("contracts/governor/OpenvinoGovernor.sol", "OpenvinoGovernor", governorAddress, "governor");
 
 		console.log("\n✅ Deploy complete.");

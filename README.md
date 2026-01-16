@@ -1,10 +1,10 @@
-# 🧪 OpenVinoDAO · Architecture & Deployment
+# OpenVinoDAO · Architecture & Deployment
 
 This repo contains the governance stack: OVI token (rebasing), gOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
 
 ---
 
-## 🧩 Architecture at a Glance
+## Architecture at a Glance
 
 OVI (OpenVinoDao) is the base asset. Holders wrap into gOVI to get voting power. Governor uses gOVI votes, Timelock executes. SplitOracle watches the gOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
 
@@ -32,13 +32,13 @@ Key flows:
 
 ---
 
-## 🚀 Contracts & Roles
+## Contracts & Roles
 
 - **OpenVinoDao (OVI)**: rebasing token (split ×2).
   - `DEFAULT_ADMIN_ROLE`: manages oracle and roles.
   - `PAUSER_ROLE`: pauses transfers.
   - `REBASER_ROLE`: can call `split()` (doubles supply if oracle allows).
-- **OpenVinoTokenVault (gOVI)**: ERC4626 + ERC20Votes wrapping OVI; no roles.
+- **GovernanceOpenvinoDAO (gOVI)**: ERC4626 + ERC20Votes wrapping OVI; no roles.
 - **SplitOracle** (gOVI/quote): allows splits when price + liquidity hold for a duration.
   - `DEFAULT_ADMIN_ROLE`: adjusts thresholds.
   - `RESETTER_ROLE`: allows `resetRiseTimestamps()` (the DAO must have it or `split()` reverts).
@@ -49,7 +49,7 @@ Key flows:
 
 ---
 
-## 🛠️ Deployment Scripts
+## Deployment Scripts
 
 - `scripts/deploy_dao.js`
 
@@ -75,7 +75,7 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 
 ---
 
-## 🔐 Recommended Role Setup
+## Recommended Role Setup
 
 - Move OVI `DEFAULT_ADMIN_ROLE`, `REBASER_ROLE`, `PAUSER_ROLE` to a multisig/timelock; revoke EOAs.
 - On the oracle, give `DEFAULT_ADMIN_ROLE` and `RESETTER_ROLE` to the multisig, and `RESETTER_ROLE` to the OVI contract.
@@ -86,7 +86,7 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 
 ---
 
-## 🧭 Quick Start
+## Quick Start
 
 ```bash
 npm install
@@ -104,7 +104,7 @@ The DAO deploy script expects an existing SplitOracle address and will call `set
 
 ---
 
-## 🧭 CLI Verification (BaseScan + Blockscout)
+## CLI Verification (BaseScan + Blockscout)
 
 ```bash
 # BaseScan (Etherscan-compatible)
@@ -113,7 +113,7 @@ npx hardhat verify --network baseSepolia --force \
   <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
 
 npx hardhat verify --network baseSepolia --force \
-  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  --contract contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO \
   <vault> <dao> "Governance OpenVinoDAO" "gOVI"
 
 # Blockscout (no API key needed)
@@ -122,14 +122,14 @@ npx hardhat verify blockscout --network baseSepolia \
   <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
 
 npx hardhat verify blockscout --network baseSepolia \
-  --contract contracts/vault/OpenVinoTokenVault.sol:OpenVinoTokenVault \
+  --contract contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO \
   <vault> <dao> "Governance OpenVinoDAO" "gOVI"
 ```
 
 ---
 
 
-## ℹ️ Notes
+## Notes
 
 - Oracle must target the **gOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
 - Each `split()` doubles supply; tightly control `REBASER_ROLE` and oracle thresholds.  
@@ -137,7 +137,7 @@ npx hardhat verify blockscout --network baseSepolia \
 
 ---
 
-## 🔄 gOVI vs OVI: Ratios and User Journeys
+## gOVI vs OVI: Ratios and User Journeys
 
 - **Ratios**: gOVI is a non-rebasing wrapper of OVI (ERC4626). The ratio `assetsPerShare`/`sharesPerAsset` reflects how many OVI back each gOVI share. On a split (OVI supply doubles), the vault ratio adjusts automatically: each gOVI represents twice as many OVI as before (assets/share goes up), so holders are not diluted.
 
