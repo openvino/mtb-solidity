@@ -75,13 +75,13 @@ npx hardhat run scripts/deploy_split_oracle.js --network base
 
 ---
 
-## Recommended Role Setup
+## Final Role Setup
 
 - Move OVI `DEFAULT_ADMIN_ROLE`, `REBASER_ROLE`, `PAUSER_ROLE` to a multisig/timelock; revoke EOAs.
 - On the oracle, give `DEFAULT_ADMIN_ROLE` and `RESETTER_ROLE` to the multisig, and `RESETTER_ROLE` to the OVI contract.
 - Timelock:
   - `PROPOSER_ROLE` → Governor.
-  - `EXECUTOR_ROLE` → option A: `0x000…0000` (anyone can execute, typical in on-chain governance); option B: a multisig/curated list (más control pero dependes de esos operadores).
+  - `EXECUTOR_ROLE` → option A: `0x000…0000` (anyone can execute, typical in on-chain governance); option B: a multisig/curated list (more control).
   - `ADMIN` → multisig/timelock.
 
 ---
@@ -93,7 +93,7 @@ npm install
 npx hardhat compile
 # 1) Deploy token + vault (OVI + gOVI)
 npx hardhat run scripts/deploy_token_stack.js --network baseSepolia
-# 2) Create a gOVI/quote pool (Uniswap V2) and add liquidity
+# 2) Create a gOVI/WETH or USDC pool (Uniswap V2) and add liquidity
 # 3) Deploy SplitOracle (needs pair + OVI + quote)
 npx hardhat run scripts/deploy_split_oracle.js --network baseSepolia
 # Deploy DAO
@@ -133,7 +133,7 @@ npx hardhat verify blockscout --network baseSepolia \
 
 - Oracle must target the **gOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
 - Each `split()` doubles supply; tightly control `REBASER_ROLE` and oracle thresholds.  
-- Be transparent about when/how splits are executed.
+
 
 ---
 
@@ -156,4 +156,4 @@ To reduce user friction, the frontend should offer simple “Buy/Sell” and “
 
 
 
-© OpenVinoDAO · 2025
+© OpenVinoDAO · 2026
