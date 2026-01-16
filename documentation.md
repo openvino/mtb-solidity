@@ -26,11 +26,10 @@
 - [OVI Price History (Derived from gOVI)](#ovi-price-history-derived-from-govi)
 - [Deployment & Operations Notes](#deployment--operations-notes)
 - [Appendix: Reference Projects (Rebasing + Wrapper Patterns)](#appendix-reference-projects-rebasing--wrapper-patterns)
-- [Testing Ideas](#testing-ideas)
 - [Scripts](#scripts)
 
 ## Overview
-This repository implements the smart-contract stack for the OpenVino DAO token ecosystem. It covers two ERC-20 compatible tokens (a capped utility token and a rebasing governance token), multisource token distribution via crowdsales, an on-chain oracle that decides when to trigger a token split, and a governance suite composed of a timelock and governor. The design targets progressive decentralization: initial operators can configure parameters, but on-chain roles and timelocked governance eventually own all critical levers.
+This repository implements the smart-contract stack for the OpenVino DAO token ecosystem. It covers two ERC-20 compatible tokens (a capped utility token and a rebasing governance token), multisource token distribution via crowdsales, an on-chain oracle that decides when to trigger a token split, and a governance suite composed of a timelock and governor. The design targets progressive decentralization through planned stages (see [Launch & Issuance Stages](#launch--issuance-stages)): initial operators can configure parameters, but on-chain roles and timelocked governance eventually own all critical levers.
 
 ## Architecture at a Glance
 OVI (OpenVinoDao) is the base asset. Holders wrap into gOVI to get voting power. Governor uses gOVI votes, Timelock executes. SplitOracle watches the gOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
@@ -90,7 +89,7 @@ The initial recipient supplied in the constructor receives the entire initial fr
 - Extends `ERC20Votes` so delegations and snapshots run against a stable supply immune to rebases.
 - `assetsPerShare()` / `sharesPerAsset()` expose the real-time ratio so front-ends can compute `price(TOKEN) = price(wTOKEN) / assetsPerShare`.
 - Splits automatically show up in the vault because `totalAssets()` reads the DAO token balance—no manual sync is required and Uniswap v2/v3/v4 can list `gOVI` as a plain ERC-20.
-This wrapper design fixes the governance issues of rebasing tokens by making voting power depend on stable share balances while still reflecting supply changes through the exchange rate.
+This wrapper design fixes the governance issues of rebasing tokens by making voting power depend on stable share balances while still reflecting supply changes through the exchange rate. It also keeps the asset compatible with any Uniswap version (v2/v3/v4) or similar AMM, rather than locking the system to v2.
 
 ## Governance Stack
 ### OpenvinoGovernor
@@ -131,6 +130,14 @@ The oracle interface `ISplitOracle` is intentionally minimal so the DAO contract
 - Handles phase boundary cases by allocating the USD contribution across both phases, updating `tokensSold` accordingly.
 - Shares the same lifecycle as the basic crowdsale (wallet-controlled finalize, cap enforcement, immediate ETH forwarding).
 - Includes helpers for price introspection (`getRate`, `getWeiAmount`, `getEthUsdPrice`).
+
+**Crowdsale stages and deployment**
+- Stage 1: initial USD price and phase cap (`ratePhaseOne`, `phaseOneTokenCap`).
+- Stage 2: higher USD price once phase 1 cap is reached (`ratePhaseTwo`).
+- Deployment flow: deploy the token, deploy the crowdsale with caps/rates + price feed, fund the crowdsale with tokens, then open the sale window.
+
+**Alternative: crowdsale in gOVI**
+Early investors may prefer the governance wrapper gOVI instead of OVI, therefore the crowdsale can be structured to sell gOVI directly. This keeps buyers aligned with the token that will trade on Uniswap later and carry voting power. It is optional and can be offered as an alternative to selling OVI.
 
 ## Launch & Issuance Stages
 The launch is designed around explicit stages rather than fixed dates. Milestones gate when the next phase unlocks:
@@ -187,7 +194,12 @@ Notes: `deploy_dao.js` calls `setOracle()` and grants `RESETTER_ROLE` to the DAO
 
 ### Operational & Governance
 **Final operational state**  
-OVI rebases via Oracle gate; gOVI is the governance + trading token; Timelock owns critical roles.  
+OVI rebases via Oracle gate; gOVI is the governance + trading token; Timelock owns all critical roles and the initial admin is removed.  
+Roles consolidated under the Timelock:
+- `OpenvinoDao`: `DEFAULT_ADMIN_ROLE`, `REBASER_ROLE`, `PAUSER_ROLE`
+- `SplitOracle`: `DEFAULT_ADMIN_ROLE`, `RESETTER_ROLE`
+- `Payout`: `owner`
+- `OpenVinoTimelock`: `TIMELOCK_ADMIN_ROLE` (no external admin)
 `OpenvinoDao (rebasing)` + `GovernanceOpenvinoDAO (votes)` + `Timelock (roles)` + `SplitOracle`
 
 **Routine governance**  

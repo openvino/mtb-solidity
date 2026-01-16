@@ -28,7 +28,7 @@ Key flows:
 - Holders deposit OVI into the vault → mint gOVI → delegate → vote in Governor.
 - Governor queues/executess via Timelock.
 - `REBASER_ROLE` on OVI can call `split()`; it calls the Oracle to check thresholds and resets its timers (DAO has `RESETTER_ROLE` on the oracle).
-- gOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; gOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power.
+- gOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; gOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power. This wrapper pattern works with any Uniswap version (v2/v3/v4) or similar AMM, so you are not locked to v2.
 
 ---
 
@@ -62,6 +62,11 @@ Key flows:
   - Prompts gOVI/quote pair, gOVI and quote addresses, price threshold, min gOVI in pool, duration, admin.
   - Optionally grants `RESETTER_ROLE` to the OVI (DAO) address provided.
   - Deploys `SplitOracle` and saves `deployments/split_oracle.json`.
+
+## Crowdsale Notes
+- `CrowdsaleOVI` runs in two USD-priced stages (phase 1 cap + rate, then phase 2 rate).
+- Deployment flow: deploy token, deploy crowdsale with caps/rates + price feed, fund crowdsale, then open the sale window.
+- Alternative: sell gOVI directly if you want investors to receive the listed governance token from day one. This can be offered as an option instead of selling OVI.
 
 Base CLI (copy/paste):
 
