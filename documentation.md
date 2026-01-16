@@ -1,4 +1,4 @@
-# MTB Solidity Contracts
+# OpenVinoDAO Solidity Contracts
 
 ## Table of Contents
 - [Overview](#overview)
