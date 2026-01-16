@@ -2,28 +2,17 @@
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Nonces.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-
-/// @notice SplitOracle minumum interface
-interface ISplitOracle {
-    function updateState() external;
-    function canSplitView() external view returns (bool);
-    function resetRiseTimestamps() external;
-    function pair() external view returns (IUniswapV2Pair);
-}
+import "./interfaces/ISplitOracle.sol";
 
 contract OpenvinoDao is
     ERC20,
     ERC20Burnable,
     ERC20Pausable,
     ERC20Permit,
-    ERC20Votes,
     AccessControl
 {
     bytes32 public constant PAUSER_ROLE  = keccak256("PAUSER_ROLE");
@@ -45,17 +34,20 @@ contract OpenvinoDao is
     event Rebase(uint256 oldSupply, uint256 newSupply);
 
     constructor(
+        string memory tokenName,
+        string memory tokenSymbol,
         address recipient,
         address defaultAdmin,
-        address pauser
+        address pauser,
+        address rebaser
     )
-        ERC20("OpenvinoDao", "OVI")
-        ERC20Permit("OpenvinoDao")
+        ERC20(tokenName, tokenSymbol)
+        ERC20Permit(tokenName)
     {
         // 1) Assign roles
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(PAUSER_ROLE, pauser);
-        _grantRole(REBASER_ROLE, defaultAdmin);
+        _grantRole(REBASER_ROLE, rebaser);
 
         // 2) Initialize rebase accounting
         _ovsPerFragment = TOTAL_OVS / INITIAL_FRAGMENTS_SUPPLY;
@@ -72,7 +64,7 @@ contract OpenvinoDao is
         emit OracleSet(oracleAddress);
     }
 
-    /// @notice Perform a split (rebase ×2) if oracle allows; then sync & reset oracle timers
+    /// @notice Perform a split (rebase ×2) if oracle allows
     function split()
         external
         onlyRole(REBASER_ROLE)
@@ -87,14 +79,12 @@ contract OpenvinoDao is
         uint256 oldSupply = totalSupply();
         uint256 newSupply = oldSupply * 2;
         require(newSupply > oldSupply, "split overflow");
-        _ovsPerFragment = TOTAL_OVS / newSupply;
+        uint256 newOvsPerFragment = TOTAL_OVS / newSupply;
+        require(newOvsPerFragment > 0, "split limit reached");
+        _ovsPerFragment = newOvsPerFragment;
         emit Rebase(oldSupply, newSupply);
 
-        // 3) Sync Uniswap V2 pair so reserves reflect the rebase
-        IUniswapV2Pair pool = oracle.pair();
-        pool.sync();
-
-        // 4) Reset oracle timers to block immediate subsequent splits
+        // 3) Reset oracle timers to block immediate subsequent splits
         oracle.resetRiseTimestamps();
     }
 
@@ -123,7 +113,7 @@ contract OpenvinoDao is
         return _ovsBalances[account] / _ovsPerFragment;
     }
 
-    /// @dev Unified hook for transfer/mint/burn + votes, using OVS units
+    /// @dev Unified hook for transfer/mint/burn using OVS units
     function _update(
         address from,
         address to,
@@ -131,7 +121,7 @@ contract OpenvinoDao is
     )
         internal
         virtual
-        override(ERC20, ERC20Pausable, ERC20Votes)
+        override(ERC20, ERC20Pausable)
     {
         require(!paused(), "Pausable: paused");
 
@@ -147,16 +137,5 @@ contract OpenvinoDao is
         }
 
         emit Transfer(from, to, amount);
-        _transferVotingUnits(from, to, amount);
-    }
-
-    /// @dev nonces for ERC20Permit
-    function nonces(address owner)
-        public
-        view
-        override(ERC20Permit, Nonces)
-        returns (uint256)
-    {
-        return super.nonces(owner);
     }
 }

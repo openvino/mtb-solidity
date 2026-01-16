@@ -15,7 +15,7 @@ async function main() {
 	const timelockAddress = deployments.timelock;
 
 	const dao = await ethers.getContractAt("OpenvinoDao", daoAddress);
-	const governor = await ethers.getContractAt("MyGovernor", governorAddress);
+	const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 
 	const amount = ethers.parseEther("52");
 

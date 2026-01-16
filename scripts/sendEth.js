@@ -12,7 +12,7 @@ async function main() {
   const governorAddress = deployments.governor;
   const timelockAddress = deployments.timelock;
 
-  const governor = await ethers.getContractAt("MyGovernor", governorAddress);
+  const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 
   const recipient = "0x87495d92Ad7655BF8bcC6447ea715498238517aF";
   const amountInEth = "0.0009";

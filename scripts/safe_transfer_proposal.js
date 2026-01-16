@@ -21,7 +21,7 @@ async function main() {
     fs.readFileSync(path.join(__dirname, "../deployments/dao.json"))
   );
   const dao = await ethers.getContractAt("OpenvinoDao", deployments.dao);
-  const governor = await ethers.getContractAt("MyGovernor", deployments.governor);
+  const governor = await ethers.getContractAt("OpenvinoGovernor", deployments.governor);
 
   // Log inicial
   console.log(`\n🗳️ Creando propuesta para que el SAFE (${safeAddr}) transfiera ${ethers.formatEther(amount)} OVI a ${recipient}...`);

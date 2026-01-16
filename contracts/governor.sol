@@ -10,7 +10,7 @@ import {GovernorVotesQuorumFraction} from "@openzeppelin/contracts/governance/ex
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 
-contract MyGovernor is
+contract OpenvinoGovernor is
     Governor,
     GovernorSettings,
     GovernorCountingSimple,
@@ -20,14 +20,14 @@ contract MyGovernor is
 {
     address public owner;
 
-    constructor(IVotes _token, TimelockController _timelock)
-        Governor("MyGovernor")
+    constructor(IVotes _voteToken, TimelockController _timelock)
+        Governor("OpenvinoGovernor")
         GovernorSettings(
             1,        // votingDelay: 1 block (~1 segundo)
             300,     // votingPeriod: (en bloques, aprox 13.2s por bloque)
             1000e18   // proposalThreshold: 1000 tokens
         )
-        GovernorVotes(_token)
+        GovernorVotes(_voteToken)
         GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
     {

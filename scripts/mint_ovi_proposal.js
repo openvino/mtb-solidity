@@ -12,7 +12,7 @@ async function main() {
   const governorAddress = deployments.governor;
 
   const dao = await ethers.getContractAt("OpenvinoDao", daoAddress);
-  const governor = await ethers.getContractAt("MyGovernor", governorAddress);
+  const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 
   const recipient = "0x350B8c6F66fbC146E00B0356A1d8879a708B3445";
   const amount = ethers.parseEther("100"); // 100 OVI

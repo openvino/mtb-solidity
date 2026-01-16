@@ -1,36 +1,41 @@
-const { ethers, run } = require("hardhat");
+import { ethers } from "ethers";
+import hre from "hardhat";
+const PROVIDER_URL = process.env.PROVIDER_BASE_SEPOLIA;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log("🚀 Deploying with account:", deployer.address);
+  const provider = new ethers.JsonRpcProvider(PROVIDER_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const net = await provider.getNetwork();
 
-  // Dirección de tu token ya desplegado
-  const tokenAddress = "0x9B103472aE9e654d836Fe699a65C27D01BD40213";
+  const chainId = Number(net.chainId);
+  const networkName = chainId === 84532 ? "baseSepolia" : "unknown";
 
-  // Parámetros de Crowdsale
-  const Crowdsale = await ethers.getContractFactory("CrowdsaleOVI");
-  const wallet = deployer.address;
+  console.log("🚀 Deploying with account:", wallet.address);
 
-  // 1) Cap total en ETH (en wei)
-  const ethCap = ethers.parseEther("500");  // 500 ETH límite total
+  const tokenAddress = "0x5ffAFdE05eF78C0bE814452f07363D470bf2CA81";
 
-  // 2) Tiempos
+  const artifact = await hre.artifacts.readArtifact("CrowdsaleOVI");
+
+  const factory = new ethers.ContractFactory(
+    artifact.abi,
+    artifact.bytecode,
+    wallet
+  );
+
+  const ethCap = ethers.parseEther("500");
+
   const openingTime = Math.floor(Date.now() / 1000);
-  const closingTime = openingTime + 7 * 24 * 60 * 60; // +7 días
+  const closingTime = openingTime + 7 * 24 * 60 * 60;
 
-  // 3) Límite de tokens para fase 1
-  // Queremos 500.000 USD en fase1 a 1.25 USD/token → 400.000 tokens
   const phaseOneTokenCap = ethers.parseUnits("10", 18);
 
-  // 4) Precios por token (en USD con 18 decimales)
-  const ratePhaseOne = ethers.parseUnits("1.25", 18); // 1.25 USD/token
-  const ratePhaseTwo = ethers.parseUnits("2.5", 18);   // 2.50 USD/token
+  const ratePhaseOne = ethers.parseUnits("0.5", 18);
+  const ratePhaseTwo = ethers.parseUnits("1", 18);
 
-  // 5) Oráculo Chainlink ETH/USD (Sepolia Base)
   const priceFeed = "0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1";
 
-  // Desplegar Crowdsale
-  const crowdsale = await Crowdsale.deploy(
+  const crowdsale = await factory.deploy(
     wallet,
     tokenAddress,
     ethCap,
@@ -41,36 +46,16 @@ async function main() {
     ratePhaseTwo,
     priceFeed
   );
+
   const crowdsaleAddress = await crowdsale.getAddress();
   console.log("✅ CrowdsaleOVI deployed at:", crowdsaleAddress);
 
-  // Verificar en Etherscan
-  try {
-    await run("verify:verify", {
-      address: crowdsaleAddress,
-      constructorArguments: [
-        wallet,
-        tokenAddress,
-        ethCap,
-        openingTime,
-        closingTime,
-        phaseOneTokenCap,
-        ratePhaseOne,
-        ratePhaseTwo,
-        priceFeed,
-      ],
-    });
-    console.log("🔍 Crowdsale verified on Etherscan");
-  } catch (err) {
-    console.warn("⚠️ Verification failed:", err.message);
-  }
+  const verifyCmd = `npx hardhat verify --network ${networkName} ${crowdsaleAddress} ${wallet.address} "${tokenAddress}" "${ethCap}" ${openingTime} ${closingTime} ${phaseOneTokenCap} ${ratePhaseOne} ${ratePhaseTwo} ${priceFeed} --contract contracts/CrowdsaleOVI.sol:CrowdsaleOVI`;
 
-
+  console.log(verifyCmd);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Deployment failed:", error);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error("❌ Deployment failed:", error);
+  process.exit(1);
+});

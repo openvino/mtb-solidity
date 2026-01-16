@@ -1,127 +1,159 @@
-# 🧪 OpenvinoDAO Deployment & Proposal Suite
+# OpenVinoDAO · Architecture & Deployment
 
-Este repositorio contiene scripts y contratos inteligentes para desplegar el ecosistema de OpenvinoDAO, incluyendo el token OVI, contratos de gobernanza (Governor, Timelock), tokens MTB y la generación de propuestas on-chain.
-
----
-
-## 📦 Requisitos
-
-- Node.js
-- Hardhat
-- Cuenta en Base / Base Sepolia
-- `.env` con `PRIVATE_KEY` configurado
+This repo contains the governance stack: OVI token (rebasing), gOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
 
 ---
 
-## 🧱 1. Deploy de Tokens MTB
+## Architecture at a Glance
 
-1. Configura el archivo `.env` con tu clave privada.
-2. Ajusta los nombres, símbolos y supply de los tokens en [`./utils/tokens.js`](./utils/tokens.js).
-3. Ejecuta:
+OVI (OpenVinoDao) is the base asset. Holders wrap into gOVI to get voting power. Governor uses gOVI votes, Timelock executes. SplitOracle watches the gOVI/quote pool to allow splits; OVI’s `split()` doubles supply when allowed. Timelock/Multisig holds the critical roles.
+
+```
+    Users                       Oracle admin / DAO admin
+     |                                   |
+     v                                   v
+ [ OVI (rebasing) ] <---- wrap/unwarp ----> [ gOVI (ERC4626 + Votes) ]
+         |                                        |
+         | split() (requires SplitOracle ok)      |
+         v                                        v
+  [ SplitOracle (gOVI/quote pair) ]           [ OpenVinoGovernor ]
+                |                                      |
+     resetter role -> OVI               proposals/votes -> queue/exec
+                |                                      |
+                +---------------- [ OpenVinoTimelock ] <---- multisig / executor
+```
+
+Key flows:
+
+- Holders deposit OVI into the vault → mint gOVI → delegate → vote in Governor.
+- Governor queues/executess via Timelock.
+- `REBASER_ROLE` on OVI can call `split()`; it calls the Oracle to check thresholds and resets its timers (DAO has `RESETTER_ROLE` on the oracle).
+- gOVI is also the asset for the liquidity pool with the quote token. Reason: OVI rebases (changing balances), which would distort AMM reserves/pricing; gOVI is non-rebasing, so the pool price remains consistent while still representing underlying OVI and carrying voting power.
+
+---
+
+## Contracts & Roles
+
+- **OpenVinoDao (OVI)**: rebasing token (split ×2).
+  - `DEFAULT_ADMIN_ROLE`: manages oracle and roles.
+  - `PAUSER_ROLE`: pauses transfers.
+  - `REBASER_ROLE`: can call `split()` (doubles supply if oracle allows).
+- **GovernanceOpenvinoDAO (gOVI)**: ERC4626 + ERC20Votes wrapping OVI; no roles.
+- **SplitOracle** (gOVI/quote): allows splits when price + liquidity hold for a duration.
+  - `DEFAULT_ADMIN_ROLE`: adjusts thresholds.
+  - `RESETTER_ROLE`: allows `resetRiseTimestamps()` (the DAO must have it or `split()` reverts).
+- **OpenVinoTimelock**: executes queued actions.
+  - `TIMELOCK_ADMIN_ROLE`, `PROPOSER_ROLE`, `EXECUTOR_ROLE` (if executor = 0x0, anyone can execute).
+- **OpenVinoGovernor**: counts gOVI votes, proposes and routes to Timelock. Owner can tweak voting delay/period/threshold.
+- **StandardERC20**: simple OZ ERC20 (for tests).
+
+---
+
+## Deployment Scripts
+
+- `scripts/deploy_dao.js`
+
+  - Prompts names/symbols, minDelay, proposers/executors/admin.
+  - Deploys Timelock, OVI, gOVI (vault), Governor.
+  - Requires a SplitOracle address; sets it on OVI and grants `RESETTER_ROLE` to the DAO (caller must have oracle admin).
+  - Saves `deployments/dao.json` with addresses.
+
+- `scripts/deploy_split_oracle.js`
+  - Prompts gOVI/quote pair, gOVI and quote addresses, price threshold, min gOVI in pool, duration, admin.
+  - Optionally grants `RESETTER_ROLE` to the OVI (DAO) address provided.
+  - Deploys `SplitOracle` and saves `deployments/split_oracle.json`.
+
+Base CLI (copy/paste):
+
+```bash
+# Deploy DAO on Base
+npx hardhat run scripts/deploy_dao.js --network base
+
+# Deploy SplitOracle on Base
+npx hardhat run scripts/deploy_split_oracle.js --network base
+```
+
+---
+
+## Recommended Role Setup
+
+- Move OVI `DEFAULT_ADMIN_ROLE`, `REBASER_ROLE`, `PAUSER_ROLE` to a multisig/timelock; revoke EOAs.
+- On the oracle, give `DEFAULT_ADMIN_ROLE` and `RESETTER_ROLE` to the multisig, and `RESETTER_ROLE` to the OVI contract.
+- Timelock:
+  - `PROPOSER_ROLE` → Governor.
+  - `EXECUTOR_ROLE` → option A: `0x000…0000` (anyone can execute, typical in on-chain governance); option B: a multisig/curated list (más control pero dependes de esos operadores).
+  - `ADMIN` → multisig/timelock.
+
+---
+
+## Quick Start
 
 ```bash
 npm install
 npx hardhat compile
-npx hardhat run scripts/deploy.js --network base
+# 1) Deploy token + vault (OVI + gOVI)
+npx hardhat run scripts/deploy_token_stack.js --network baseSepolia
+# 2) Create a gOVI/quote pool (Uniswap V2) and add liquidity
+# 3) Deploy SplitOracle (needs pair + OVI + quote)
+npx hardhat run scripts/deploy_split_oracle.js --network baseSepolia
+# Deploy DAO
+npx hardhat run scripts/deploy_dao.js --network baseSepolia
 ```
 
-4. Verificación manual (si falla la automática):
+The DAO deploy script expects an existing SplitOracle address and will call `setOracle`. Use `deployments/dao.json` and `deployments/split_oracle.json` as references.
+
+---
+
+## CLI Verification (BaseScan + Blockscout)
 
 ```bash
-npx hardhat verify --network base --contract contracts/mtb.sol:MTB \
-  0x... "MikeTangoBravo25" "MTB25" 1024000000000000000000 1024000000000000000000
+# BaseScan (Etherscan-compatible)
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify --network baseSepolia --force \
+  --contract contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
+
+# Blockscout (no API key needed)
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/OpenvinoDao.sol:OpenvinoDao \
+  <dao> "<token name>" "<symbol>" <recipient> <admin> <pauser> <rebaser>
+
+npx hardhat verify blockscout --network baseSepolia \
+  --contract contracts/GovernanceOpenvinoDAO.sol:GovernanceOpenvinoDAO \
+  <vault> <dao> "Governance OpenVinoDAO" "gOVI"
 ```
 
 ---
 
-## 🧑‍⚖️ 2. Deploy del Sistema de Gobernanza DAO
 
-Este script despliega:
+## Notes
 
-- `MyTimelock`
-- `OpenvinoDao` (token OVI)
-- `MyGovernor`
-- Y delega el poder de voto al deployer.
-
-```bash
-npx hardhat run scripts/deploy_dao.js --network base
-```
-
-Esto guardará las direcciones en `deployments/dao.json`.
+- Oracle must target the **gOVI/quote** pair with liquidity (>0) to avoid divide-by-zero.  
+- Each `split()` doubles supply; tightly control `REBASER_ROLE` and oracle thresholds.  
+- Be transparent about when/how splits are executed.
 
 ---
 
-## 💵 3. Deploy de Crowdsale (opcional)
+## gOVI vs OVI: Ratios and User Journeys
 
-```bash
-# Asegúrate de configurar el token y el destinatario dentro del script.
-npx hardhat run scripts/deployCrowdsale.js --network base
-```
+- **Ratios**: gOVI is a non-rebasing wrapper of OVI (ERC4626). The ratio `assetsPerShare`/`sharesPerAsset` reflects how many OVI back each gOVI share. On a split (OVI supply doubles), the vault ratio adjusts automatically: each gOVI represents twice as many OVI as before (assets/share goes up), so holders are not diluted.
 
----
+- **Buy / LP path (before split)**: User swaps quote → gOVI (gets X gOVI). If they add liquidity, they pair gOVI with quote in the pool. Ratio is 1:1 if vault was empty; otherwise use the current ratio.
 
-## 📤 4. Scripts de Propuestas
+- **After a split**: OVI supply doubles; vault’s `assetsPerShare` increases. gOVI balances stay the same, but each gOVI is redeemable for more OVI. Pool pricing stays consistent because gOVI is non-rebasing.
 
-Todos requieren que los contratos estén desplegados y las direcciones almacenadas en `deployments/dao.json`.
+- **Vote path**: User acquires gOVI (swap or wrap OVI), delegates votes (to self or another) and votes in Governor. No need to hold OVI directly for voting; gOVI carries voting power.
 
-### 🔁 Transferencia de tokens (OVI) desde el Treasury
+- **Unwrap / exit**: User redeems gOVI → receives OVI using current ratio. If coming from LP, they remove liquidity (get gOVI + quote) and optionally unwrap gOVI to OVI.
 
-```bash
-npx hardhat run scripts/proposeTransfer.js --network base
-```
-
-### 🍷 Propuesta de Split de tokens DAO (llama a `split()`)
-
-```bash
-npx hardhat run scripts/proposeSplit.js --network base
-```
-
-### 🧑‍🎨 Mint de tokens OVI (propuesta de acuñación)
-
-```bash
-npx hardhat run scripts/proposeMint.js --network base
-```
-
-### 🗳️ Emitir un voto
-
-```bash
-npx hardhat run scripts/voteProposal.js --network base
-```
-
-> ⚠️ Verifica que la propuesta esté activa antes de votar.
+To reduce user friction, the frontend should offer simple “Buy/Sell” and “Vote” actions that automatically handle wrap/unwrap and delegation in the background, so users never deal with those steps manually.
 
 ---
 
-## 📁 Archivos Importantes
 
-| Archivo                      | Descripción                |
-| ---------------------------- | -------------------------- |
-| `scripts/deploy.js`          | Deploy de tokens MTB       |
-| `scripts/deployDao.js`       | Deploy completo de la DAO  |
-| `scripts/proposeTransfer.js` | Propuesta de transferencia |
-| `scripts/proposeSplit.js`    | Propuesta de split         |
-| `scripts/proposeMint.js`     | Propuesta de mint          |
-| `scripts/voteProposal.js`    | Emitir voto                |
 
----
 
-## ✅ Resultado Esperado
-
-Con estos scripts puedes:
-
-- Desplegar tokens y contratos de gobernanza.
-- Crear propuestas on-chain.
-- Votar y ejecutar propuestas.
-- Realizar splits de tesorería y gobernar el ecosistema.
-
----
-
-## 🧠 Tips
-
-- Usa BaseScan para verificar contratos.
-- Asegúrate que el `Timelock` tenga saldo de OVI/ETH para ejecutar acciones.
-- Las propuestas deben pasar por las fases: `Pending → Active → Succeeded → Queued → Executed`.
-
----
-
-## © OpenvinoDAO · 2025
+© OpenVinoDAO · 2025

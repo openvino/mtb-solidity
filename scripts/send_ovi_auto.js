@@ -11,11 +11,13 @@ async function main() {
   );
 
   const daoAddress = deployments.dao;
+  const voteTokenAddress = deployments.voteToken;
   const governorAddress = deployments.governor;
   const timelockAddress = deployments.timelock;
 
   const dao = await ethers.getContractAt("OpenvinoDao", daoAddress);
-  const governor = await ethers.getContractAt("MyGovernor", governorAddress);
+  const voteToken = await ethers.getContractAt("GovernanceOpenvinoDAO", voteTokenAddress);
+  const governor = await ethers.getContractAt("OpenvinoGovernor", governorAddress);
 
   const amount = ethers.parseEther("1000"); // 1000 OVI
 
@@ -26,10 +28,10 @@ async function main() {
   console.log("Allowance otorgado");
 
   
-  const currentVotes = await dao.getVotes(proposer.address);
+  const currentVotes = await voteToken.getVotes(proposer.address);
   if (currentVotes === 0n) {
-    console.log(`\nDelegando votos a ${proposer.address}...`);
-    const delegateTx = await dao.delegate(proposer.address);
+    console.log(`\nDelegando votos de wOVI a ${proposer.address}...`);
+    const delegateTx = await voteToken.delegate(proposer.address);
     await delegateTx.wait();
     console.log("Delegación realizada");
   } else {
