@@ -1,6 +1,6 @@
 # OpenVinoDAO · Architecture & Deployment
 
-This repo contains the governance stack: OVI token (rebasing), gOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
+This repository contains the governance stack: OVI token (rebasing), gOVI vault (ERC4626 + votes), Timelock, Governor, and SplitOracle. Interactive scripts target Base/Base Sepolia.
 
 ---
 
