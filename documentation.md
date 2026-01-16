@@ -209,6 +209,19 @@ Placeholder flow: `AMM price feed` → `assetsPerShare()` → `OVI price history
 - Token + vault deployment now lives in `scripts/deploy_token_stack.js`; point `DAO_TOKEN_REBASER` at your timelock when going to production so it is the sole caller of `split()`.
 - Governance wiring (`OpenVinoTimelock` + `OpenVinoGovernor`) lives in `scripts/deploy_dao.js`. The script accepts `DAO_TOKEN_ADDRESS` if you have already deployed the token stack separately and will grant + optionally revoke the `REBASER_ROLE` as part of the flow.
 
+## Quick Start
+```bash
+npm install
+npx hardhat compile
+# 1) Deploy token + vault (OVI + gOVI)
+npx hardhat run scripts/deploy_token_stack.js --network baseSepolia
+# 2) Create a gOVI/quote pool (Uniswap V2) and add liquidity
+# 3) Deploy SplitOracle (needs pair + OVI + quote)
+npx hardhat run scripts/deploy_split_oracle.js --network baseSepolia
+# 4) Deploy DAO stack
+npx hardhat run scripts/deploy_dao.js --network baseSepolia
+```
+
 ## CLI Verification (BaseScan + Blockscout)
 ```bash
 # BaseScan (Etherscan-compatible)

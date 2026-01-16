@@ -10,3 +10,5 @@ node_modules
 ignition/deployments/chain-31337
 .deploys/
 .deps/
+.DS_Store
+*.vsix
